@@ -2,8 +2,8 @@
 namespace Sooh2\DB\KVObj;
 
 /**
- * 缓存模式或读写分离情况下，读操作对应的类用KVObj即可，写操作的类用此类，需要在初始化时设置对应的读取类
- * 注意： getCopy的pkey 和 OnInit时设置读操作类,以及是否需要程序完成数据从硬盘到内存的复制操作
+ * 读写分离的KVObj，读操作对应的类用KVObj即可，写操作的类用此类（比如mysql主从库）
+ * 注意： getCopy的pkey 和 OnInit时设置读操作类
  */
 class KVObjRW implements Interfaces
 {
@@ -39,12 +39,6 @@ class KVObjRW implements Interfaces
      * @var \Sooh2\DB\KVObj
      */
     protected $_reader=null;    
-
-    /**
-     * 是否需要手动传输数据（主从模式不用，cache模式需要）
-     * @var bool
-     */
-    protected $needTransData=false;
     
     protected $isWriterLoaded=false;
     
@@ -57,61 +51,31 @@ class KVObjRW implements Interfaces
      * @return mixed true on loaded already, pkey on first load ,null on no record
      */
     public function load($forceReload=false){
-        if($forceReload==false || $this->needTransData==false){//主从模式或者没有要求强制重新加载的情况下，使用reader默认
-            $ret = $this->_reader->load($forceReload);
-        }else{
-            $ret = null;
-        }
-            
-        if($ret === null && $this->needTransData ){
-            
-            return $this->loadFromDisk();
-        }else{
-            return $ret;
-        }
+        $ret = $this->_reader->load($forceReload);
+        return $ret;
     }
     /**
-     * 从write加载数据，覆盖到reader，并用reader落地一次（忽略reader落地成功或失败）
+     * 从writer加载数据
      */
-    protected function loadFromDisk($needsReload=true)
+    protected function loadFromDisk()
     {
-        if($needsReload){
-            $ret = $this->_writer->load($needsReload);
-        }else{
-            $ret = true;
-        }
+        $ret = $this->_writer->load(true);
         $this->isWriterLoaded=true;
         $r = $this->_writer->dump();
         if(is_array($r)){
-            $isReaderExists = $this->_reader->exists(); 
             
             foreach($r as $k=>$v){
+                if(in_array($k , array_keys($this->_reader->pkey())))continue; //防止主键被重复设置
                 $this->_reader->setField($k, $v);
             }
             
-            try{
-                if($isReaderExists==false){
-                    $this->_reader->forceInsert();
-                }else{
-                    $verField = \Sooh2\DB::version_field();
-                    $this->_reader->setField($verField, \Sooh2\Util::autoIncCircled($this->_reader->getField($verField),-1));
-                }
-                $this->_reader->lockObj(clone $this->_writer->lockObj());
-
-                $ret = $this->_reader->saveToDB();
-                if($ret==false){
-                    \Sooh2\Misc\Loger::getInstance()->sys_warning('data load from disk ok,but write cache failed ('.json_encode($this->_pkey).')');
-                }else{
-                    return $this->_pkey;
-                }
-            }catch(\ErrorException $e){
-                \Sooh2\Misc\Loger::getInstance()->sys_warning('data load from disk ok,but write cache failed ('.json_encode($this->_pkey).'):'.$e->getMessage());
-            }
+            
         }
         return $ret;
     }
     /**
-     * 保存到数据库，可以尝试几次（保存失败后重新加载，调用预定义的操作函数，再次尝试保存），过程中碰到异常抛出不拦截
+     * 保存到数据库，可以尝试几次（保存失败后重新加载，调用预定义的操作函数，再次尝试保存），
+     * 过程中碰到异常抛出不拦截，保存成功后，更新_reader数据（不落地）
      * @param function $func_update 预定义的操作函数，第一次尝试时就调用了
      * @param int $maxRetry 重试次数(没设置$func_update的时候忽略此参数)
      * @throws \ErrorException  除了系统故障类报错以外，还可能因重试时条件不匹配丢出异常
@@ -119,14 +83,20 @@ class KVObjRW implements Interfaces
      */
     public function saveToDB($func_update=null, $maxRetry=3){
         $verName = \Sooh2\DB::version_field();
-    
-        if($this->_reader->getField($verName) != $this->_reader->getField($verName) && $func_update===null){//rowVersion not match
-            return false;
-        }
+        try{
+            $verValue = $this->_writer->getField($verName);
+            if($verValue != $this->_reader->getField($verName) && $func_update===null){//rowVersion not match
+                return false;
+            }
+        }catch (\Exception $e){}
+
     
         $ret = $this->_writer->saveToDB($func_update,$maxRetry);
         if($ret){
-            $this->loadFromDisk(false);
+            $r = $this->_writer->dump();
+            foreach ($r as $k=>$v){
+                $this->_reader->setField($k, $v);
+            }
         }
         return $ret;
     }
@@ -151,9 +121,26 @@ class KVObjRW implements Interfaces
      * @param int $splitIndex
      * @return array  [$db, $tbname]
      */
-    public function dbAndTbName($splitIndex=null)
+    public function dbAndTbName($splitIndex=null,$readonly=false)
     {
-        throw new \ErrorException('读写分离的情况下，不要使用此函数');
+        if($readonly){
+            return $this->_reader->dbAndTbName($splitIndex,$readonly);
+        }else{
+            return $this->_writer->dbAndTbName($splitIndex,$readonly);
+        }
+    }
+    /**
+     * 获取存取记录所需要的db和tablename
+     * @param int $splitIndex
+     * @return array  [$db, $tbname]
+     */
+    public function dbWithTablename($splitIndex=null,$readonly=false)
+    {
+        if($readonly){
+            return $this->_reader->dbWithTablename($splitIndex,$readonly);
+        }else{
+            return $this->_writer->dbWithTablename($splitIndex,$readonly);
+        }
     }
     /**
      * 设置成功加载后的回调函数

@@ -29,7 +29,7 @@ class Util
      * json_encode 的另一个实现，主要变更：
      *   1）数字不加引号
      *   2）字符串不编码，只将 " 替换为 \"
-     * @param unknown $arr
+     * @param array $arr
      * @return string
      */
     public static function toJsonSimple($arr)
@@ -59,6 +59,14 @@ class Util
             }
             return substr($s,0,-1).'}';
         }else{
+            if(empty($arr)){
+                return '[]';
+            }
+            if(!is_array($arr)){
+                $err = new \ErrorException('[toJsonSimple]array support only,'. getType($arr).' given');
+                \Sooh2\Misc\Loger::getInstance()->app_warning($err->getMessage());
+                throw $err;
+            }
             $s = '[';
             foreach($arr as $v){
                 if(is_array($v)){
@@ -103,7 +111,18 @@ class Util
     {
         //$proxyIP = \Sooh\Base\Ini::getInstance()->get('inner_nat');
         if(!empty($proxyIP) && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])){
-            return $_SERVER['HTTP_X_FORWARDED_FOR'];
+            $arr = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+            foreach ($arr as $ip){
+                $ippart = explode('.',trim($ip));
+                if($ippart[0]==10){
+                    continue;
+                }elseif($ippart[0]==192 && $ippart[1]==168){
+                    continue;
+                }else{
+                    return $ip;
+                }
+            }
+            return $_SERVER['REMOTE_ADDR'];
         }else{
             return $_SERVER['REMOTE_ADDR'];
         }

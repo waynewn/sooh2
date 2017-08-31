@@ -40,7 +40,7 @@ class Yaf_Request_Simple
 	 * @return \Exception 
 	 */
 	public function getException(){throw new \ErrorException('not support');}
-	public function get(string $name,$default= NULL){
+	public function get($name,$default= NULL){
 	    if(isset($_GET[$name])){
 	        return $_GET[$name];
 	    }elseif(isset($_POST[$name])){
@@ -54,7 +54,7 @@ class Yaf_Request_Simple
 	/**
 	 * @return array
 	 */
-	public function getParams (){return $this->_params;}
+	public function getParams (){return array_merge($_GET,$_POST,$this->_params);}
 	/**
 	 * @param string $name 变量名
 	 * @param mixed $default 当空值的时候用$default替代
@@ -73,12 +73,12 @@ class Yaf_Request_Simple
 	public function getMethod( ){return $_SERVER['REQUEST_METHOD'];}
 	
 	public function getLanguage(){throw new \ErrorException('not support');}
-	public function getQuery(string $name= NULL){throw new \ErrorException('not support');}
-	public function getPost(string $name= NULL){throw new \ErrorException('not support');}
-	public function getEnv(string $name= NULL){throw new \ErrorException('not support');}
-	public function getServer(string $name= NULL){return $name===null?$_SERVER:$_SERVER[$name];}
-	public function getCookie(string $name= NULL){return $name===null?$_COOKIE:$_COOKIE[$name];}
-	public function getFiles(string $name= NULL){throw new \ErrorException('not support');}
+	public function getQuery($name= NULL){throw new \ErrorException('not support');}
+	public function getPost($name= NULL){throw new \ErrorException('not support');}
+	public function getEnv($name= NULL){throw new \ErrorException('not support');}
+	public function getServer($name= NULL){return $name===null?$_SERVER:$_SERVER[$name];}
+	public function getCookie($name= NULL){return $name===null?$_COOKIE:$_COOKIE[$name];}
+	public function getFiles($name= NULL){throw new \ErrorException('not support');}
 	public function isGet(){throw new \ErrorException('not support');}
 	public function isPost(){throw new \ErrorException('not support');}
 	public function isHead(){throw new \ErrorException('not support');}

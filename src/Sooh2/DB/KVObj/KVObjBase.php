@@ -74,11 +74,22 @@ class KVObjBase
      */
     protected $_lock=null;
     /**
+     * 获取指定主键对应的db实例， 表名可通过db->kvobjTable()获得;
+     * @param int $splitIndex 使用指定值计算而不是当前值
+     * @return \Sooh2\DB\Myisam\Broker
+     */
+    public function dbWithTablename($splitIndex=null,$readonly=false)
+    {
+        list($db,$tb) = $this->dbAndTbName($splitIndex);
+        $db->kvobjTable($tb);
+        return $db;
+    }
+    /**
      * 获取指定主键对应的db实例 和 表名
      * @param int $splitIndex 使用指定值计算而不是当前值
      * @return array  [DB, tbname];
      */
-    public function dbAndTbName($splitIndex=null)
+    public function dbAndTbName($splitIndex=null,$readonly=false)
     {
         if($splitIndex===null){
             if(!empty($this->dbTbUsed)){
@@ -100,7 +111,7 @@ class KVObjBase
         }
         $tbName .= '.'.str_replace('{i}', $chkid, $this->_tbName);
         if(empty($dbConf)){
-            throw new \ErrorException('dbConf of '.$this->className.' not found');
+            throw new \ErrorException('dbConf of kvobj:'.$this->className.' not found');
         }
         if($splitIndex==null){
             return $this->dbTbUsed = array(\Sooh2\DB::getConnection($dbConf),$tbName);
@@ -128,6 +139,9 @@ class KVObjBase
     protected static function calcPkeyVal($pkey)
     {
         if(sizeof($pkey)==1){
+            if(!is_array($pkey)){
+                throw new \ErrorException('pkey should be array, '.var_export($pkey,true).' given');
+            }
             $n = current($pkey);
             if(is_numeric($n) && !strpos($n, '.') && !strpos($n, 'e') && !strpos($n, 'E')){
                 return array($n, self::calcPkeyValOfNumber($n));
@@ -212,7 +226,7 @@ class KVObjBase
                 return null;
             }
         }else{
-            throw new \ErrorException('dont known what to load(pkey is '.json_encode($$this->_pkey).')');
+            throw new \ErrorException('dont known what to load(pkey is '.json_encode($this->_pkey).')');
         }
         
     }
@@ -281,6 +295,10 @@ class KVObjBase
             return $this->_lock;
         }
     }
+    protected function verFieldName()
+    {
+        return \Sooh2\DB::version_field();
+    }
     /**
      * 保存到数据库，可以尝试几次（保存失败后重新加载，调用预定义的操作函数，再次尝试保存），过程中碰到异常抛出不拦截
      * @param function $func_update 预定义的操作函数，第一次尝试时就调用了
@@ -292,7 +310,7 @@ class KVObjBase
     {
         $loger = \Sooh2\Misc\Loger::getInstance();
         //error_log( "[tracelevel]".$loger->traceLevel());
-        $verField = \Sooh2\DB::version_field();
+        $verField = $this->verFieldName();
         $where = $this->_pkey;
         list($db,$tb) = $this->dbAndTbName();
         while($maxRetry){
@@ -308,7 +326,11 @@ class KVObjBase
             }
             if($this->field_locker!==null){
                  if($this->_lock!==null){
+                     $old=$this->r[$this->field_locker];
                      $this->r[$this->field_locker] = $this->_lock->toString();
+                     if(!empty($old) && !empty($this->r[$this->field_locker])){
+                         throw new \ErrorException('row is locked, check code,should check lock first');
+                     }
                  }else{
                      $this->r[$this->field_locker]='';
                  }
@@ -327,8 +349,9 @@ class KVObjBase
                 if($ret===1){
                     $this->chged=array();
                     $this->r[$verField]=$fields[$verField];
-                    $loger->sys_trace("{$this->className}:".\Sooh2\Util::toJsonSimple($this->_pkey)." update success");
                     return true;
+                }else{
+                    $loger->sys_trace("{$this->className}:".\Sooh2\Util::toJsonSimple($this->_pkey)." update failed, ver changed?");
                 }
             }else{//新增记录
                 if(empty($fields[$verField])){
@@ -337,10 +360,12 @@ class KVObjBase
                 try{
                     $ret = $db->addRecord($tb,$fields,$this->_pkey);
                     if($ret){
-                        $loger->sys_trace("{$this->className}:".\Sooh2\Util::toJsonSimple($this->_pkey)." save new success");
                         $this->chged=array();
                         $this->forceInsert=false;
+                        $this->r[$verField]=$fields[$verField];
                         return true;
+                    }else{
+                        $loger->sys_trace("{$this->className}:".\Sooh2\Util::toJsonSimple($this->_pkey)." save new failed unknown");
                     }
                 }catch (\Sooh2\DB\DBErr $e){
                     if(!empty($e->keyDuplicated)){
@@ -351,7 +376,7 @@ class KVObjBase
             }
             //更新失败
             if($func_update===null){
-                $loger->sys_trace("{$this->className}:".\Sooh2\Util::toJsonSimple($this->_pkey)." save failed unknown");
+//                $loger->sys_trace("{$this->className}:".\Sooh2\Util::toJsonSimple($this->_pkey)." save failed finally");
                 return false;
             }
             $this->reload();

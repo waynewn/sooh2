@@ -76,7 +76,7 @@ class LockInfo {
     public function lock($reason,$ext='',$dur=86400000)
     {
         if(class_exists('\\Sooh2\\Misc\\Ini',false)){
-            $serverId=\Sooh2\Misc\Ini::getInstance()->getIni('application.serverId')-0;
+            $serverId=\Sooh2\Misc\Ini::getInstance()->getServerId();
         }else{
             $serverId = 0;
         }

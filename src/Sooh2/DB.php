@@ -18,10 +18,102 @@ class DB
      * check param, then create new put into OR get exists from pool
      * @param mixed $arrConnection
      * @throws \ErrorException on any parse-error found
+     * @return \Sooh2\DB\Interfaces\Conn
+     */
+    public static function getConn($arrConnection)
+    {
+        if(is_string($arrConnection)){
+            $arrConnection = json_decode($arrConnection,true);
+        }
+        if(is_array($arrConnection)){
+            if(!empty($arrConnection['dbType'])){
+                $c = "\\Sooh2\\DB\\".$arrConnection['dbType']."\\Conn";
+                $tmp = new $c();
+                $tmp->dbType = $arrConnection['dbType'];
+            }else{
+                throw new \ErrorException('missiong dbType in db-connection-ini');
+            }
+            if(!empty($arrConnection['server'])){
+                $tmp->server = $arrConnection['server'];
+            }else{
+                throw new \ErrorException('missiong server in db-connection-ini');
+            }
+            if(empty($arrConnection['port'])){
+                if($arrConnection['port']===0){
+                    $tmp->port = $arrConnection['port'];
+                }else{
+                    throw new \ErrorException('invalid port in db-connection-ini');
+                }
+            }else{
+                if(is_numeric($arrConnection['port'])){
+                    $tmp->port = $arrConnection['port'];
+                }else{
+                    throw new \ErrorException('invalid port in db-connection-ini');
+                }
+            }
+            if(!empty($arrConnection['user'])){
+                $tmp->user = $arrConnection['user'];
+            }else{
+                throw new \ErrorException('missiong user in db-connection-ini');
+            }
+            $tmp->guid = $tmp->user.'@'.$tmp->server.':'.$tmp->port;
+            if(isset(self::$connPool[$tmp->guid])){
+                return self::$connPool[$tmp->guid];
+            }
+            if(!empty($arrConnection['charset'])){
+                $tmp->charset = $arrConnection['charset'];
+            }
+            if(!empty($arrConnection['pass'])){
+                $tmp->pass = $arrConnection['pass'];
+            }else{
+                throw new \ErrorException('missiong pass in db-connection-ini');
+            }
+            $tmp->dbNameDefault = $arrConnection['dbName'];
+            //error_log("wnwww 9:". json_encode($arrConnection)."#".var_export($arrConnection,true));
+            return self::$connPool[$tmp->guid]=$tmp;
+        }else{
+            if(!empty($arrConnection->guid)){
+                //////////////////////////??????????????????????????
+                return self::$connPool[$tmp->guid];
+            }else{
+                throw new \ErrorException('param-given is not a connection class, configuration error?'.var_export($tmp,true));
+            }
+        }
+    }
+    
+    
+    /**
+     * check param, then create new put into OR get exists from pool
+     * @param mixed $arrConnection
+     * @throws \ErrorException on any parse-error found
+     * @return \Sooh2\DB\Interfaces\DB
+     */
+    public static function getDB($arrConnection)
+    {
+        $tmp = self::getConn($arrConnection);
+        if(!isset(self::$pool[$tmp->guid])){
+            $c = "\\Sooh2\\DB\\".$tmp->dbType."\\Broker";
+            if(!class_exists($c,false)){
+                include __DIR__."/DB/".$tmp->dbType."/Broker.php";
+            }
+
+            $db = new $c;
+            $db->connection = $tmp;
+            self::$pool[$tmp->guid]=$db;
+        }
+        return self::$pool[$tmp->guid];
+    }
+    
+    /**
+     * @deprecated 
+     * check param, then create new put into OR get exists from pool
+     * @param mixed $arrConnection
+     * @throws \ErrorException on any parse-error found
      * @return \Sooh2\DB\Interfaces\DB
      */
     public static function getConnection($arrConnection)
     {
+        \Sooh2\Misc\Loger::getInstance()->sys_warning('deprecated use getDB() instead ');
         if(is_string($arrConnection)){
             $arrConnection = json_decode($arrConnection,true);
         }
@@ -56,7 +148,9 @@ class DB
                 throw new \ErrorException('missiong user in db-connection-ini');
             }
             $tmp->guid = $tmp->user.'@'.$tmp->server.':'.$tmp->port;
-            
+            if(!empty($arrConnection['charset'])){
+                $tmp->charset = $arrConnection['charset'];
+            }
             if(!empty($arrConnection['pass'])){
                 $tmp->pass = $arrConnection['pass'];
             }else{
@@ -115,6 +209,7 @@ class DB
         }
     }
     protected static $pool = array();
+    protected static $connPool=array();
     public $dbType;
     public $guid;
     public $server;

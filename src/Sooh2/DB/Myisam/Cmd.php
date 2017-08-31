@@ -223,7 +223,11 @@ class Cmd
                             $tmp[]=substr($k,1).'='.substr($k,1).$c.($v-0);
                             break;
                         default:
-                            $tmp[]=$k.'='.$this->safeStr($v);
+                            if($v===null){
+                                $tmp[]=$k.'=null';
+                            }else{
+                                $tmp[]=$k.'='.$this->safeStr($v);
+                            }
                             break;
                     }
                     
@@ -238,7 +242,11 @@ class Cmd
                         $tmp[]=json_encode($v);
                     }
                 }else{
-                    $tmp[]=$k.'='.$this->safeStr($v);
+                    if($v===null){
+                        $tmp[]=$k.'=null';
+                    }else{
+                        $tmp[]=$k.'='.$this->safeStr($v);
+                    }
                 }
         }
         return implode(', ', $tmp);

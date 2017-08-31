@@ -5,9 +5,18 @@ namespace Sooh2\DB\Myisam;
 
 class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
 {
+    protected $_tmpKvobjTable;
+    public function kvobjTable($tb=null)
+    {
+        if($tb==null){
+            return $this->_tmpKvobjTable;
+        }else{
+            return $this->_tmpKvobjTable=$tb;
+        }
+    }
     /**
      * 
-     * @var \Sooh2\DB\Connections
+     * @var \Sooh2\DB\Interfaces\Conn
      */
     public $connection;
     public function connect()
@@ -15,18 +24,16 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         
         if(!$this->connection->connected){
             try{
-                \Sooh2\Misc\Loger::getInstance()->sys_trace("TRACE: myisam connecting todo(usedb)");
-                $this->connection->connected=mysqli_connect($this->connection->server,$this->connection->user,$this->connection->pass,null,$this->connection->port);
-                if(!$this->connection->connected){
+                $h = $this->connection->getConnection();
+                if(!$h){
                     throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, mysqli_connect_errno().":".mysqli_connect_error(), "");
                 }
-                mysqli_select_db($this->connection->connected, $this->connection->dbNameDefault);
-                $this->connection->dbName = $this->connection->dbNameDefault;
+                $this->connection->change2DB($this->connection->dbNameDefault);
                 if(!empty($this->connection->charset)){
                     $this->exec(array('set names '.$this->connection->charset));
                 }
             }catch (\ErrorException $e){
-                throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, $e->getMessage(), "");
+                throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, $e->getMessage()." when try connect to {$this->connection->server} by {$this->connection->user}", "");
             }
         }
     }
@@ -72,21 +79,19 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
                     break;
                 default:$err=\Sooh2\DB\DBErr::otherError; break;
             }
-            if(empty($this->skip) || !isset($this->skip[$err])){
-                $ex=new \Sooh2\DB\DBErr($err,'['.$errno.']'.$message, $this->_lastCmd);
-                if(!empty($dupKey)){
-                    $ex->keyDuplicated=$dupKey;
-                }
+            $ex=new \Sooh2\DB\DBErr($err,'['.$errno.']'.$message, $this->_lastCmd);
+            if(!empty($dupKey)){
+                $ex->keyDuplicated=$dupKey;
+            }            
+            if(!isset($this->skip[$err])){
                 \Sooh2\Misc\Loger::getInstance()->sys_warning("[".$ex->getCode()."]".$ex->getMessage()."\n". $this->_lastCmd."\n".$ex->getTraceAsString());
-                throw $ex;
             }
+            $this->skip=array();
+            throw $ex;
         }        
-        if(0!==($err=mysqli_errno($this->connection->connected))){
-            throw new \Sooh2\DB\DBErr($stepErrorId?:\Sooh2\DB\DBErr::otherError, "[$err]".mysqli_error($this->connection->connected), $this->_lastCmd);
-        }
     }
 
-    public function skipError($skipThisError)
+    public function skipErrorLog($skipThisError)
     {
         if($skipThisError===null){
             if(sizeof($this->skip)>0){
@@ -100,10 +105,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
     protected $skip=array();
     public function disconnect()
     {
-        if($this->connection->connected){
-            mysqli_close($this->connection->connected);
-            $this->connection->connected=false;
-        }
+        $this->connection->disConnect();
     }
     //public function createTable();
     
@@ -121,7 +123,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         $r = mysqli_fetch_assoc($rs0);
         
         mysqli_free_result($rs0);
-        $this->skipError(null);
+        $this->skipErrorLog(null);
         return $r;
     }
     public function lastCmd()
@@ -176,7 +178,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             $rs[]=$r;
         }
         mysqli_free_result($rs0);
-        $this->skipError(null);
+        $this->skipErrorLog(null);
         return $rs;
     }
     public function getCol($obj, $field, $where=null, $sortgrpby=null,$pageSize=null,$rsFrom=0){
@@ -194,7 +196,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             $rs[]=$r[0];
         }
         mysqli_free_result($rs0);
-        $this->skipError(null);
+        $this->skipErrorLog(null);
         return $rs;
     }
     public function getPair($obj, $fieldKey,$fieldVal, $where=null, $sortgrpby=null,$pageSize=null,$rsFrom=0){
@@ -212,7 +214,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             $rs[$r[0]]=$r[1];
         }
         mysqli_free_result($rs0);
-        $this->skipError(null);
+        $this->skipErrorLog(null);
         return $rs;
     }
     public function getRecordCount($obj, $where=null){
@@ -225,7 +227,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         $rs0 = $this->exec(array($this->_lastCmd));
         $r = mysqli_fetch_row($rs0);
         mysqli_free_result($rs0);
-        $this->skipError(null);
+        $this->skipErrorLog(null);
         return $r[0];
     }
     public function updRecords($obj,$fields,$where=null){
@@ -238,7 +240,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             .$this->buildWhere($where);
         
         $rs0 = $this->exec(array($this->_lastCmd));
-        $this->skipError(null);
+        $this->skipErrorLog(null);
         
         $affectedRows = mysqli_affected_rows($this->connection->connected);
         return $affectedRows>0?$affectedRows:true;
@@ -252,7 +254,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             .' set '.$this->buildFieldsForUpdate($fields,$pkey);
 
         $this->exec(array($this->_lastCmd));
-        $this->skipError(null);
+        $this->skipErrorLog(null);
         $insertId = mysqli_insert_id($this->connection->connected);
         
         return $insertId>0?$insertId:true;
@@ -266,7 +268,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             .' '.$this->buildWhere($where);
         
         $rs0 = $this->exec(array($this->_lastCmd));
-        $this->skipError(null);
+        $this->skipErrorLog(null);
         
         $affectedRows = mysqli_affected_rows($this->connection->connected);
         return $affectedRows>0?$affectedRows:true;

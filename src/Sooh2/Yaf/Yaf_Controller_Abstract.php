@@ -52,7 +52,7 @@ class Yaf_Controller_Abstract
 	 * @param  string $view_directory view的模板路径
 	 * @retrun boolean
 	 */
-	public function setViewPath(string $view_directory){return empty($view_directory);}
+	public function setViewPath( $view_directory){return empty($view_directory);}
 	/**
 	 * 获取viewPath
 	 * @return string view-path

@@ -12,9 +12,13 @@ class Yaf_simplest
      */
     public static function getRequest($argv=null)
     {
-        if($argv!==null){
+        if($argv!==null){//命令行模式
             parse_str($argv,$_GET);
+            
             if(isset($_GET['request_uri'])){
+                $temp = explode('?', $_GET['request_uri']);
+                
+                $_GET['request_uri']=$temp[0];
                 $mca = explode('/', trim($_GET['request_uri'],'/'));
                 $_GET = array();
                 while(sizeof($mca)>=4){
@@ -22,24 +26,50 @@ class Yaf_simplest
                     $k = array_pop($mca);
                     $_GET[$k]=$v;
                 }
+                if(!empty($temp[1])){
+                    parse_str($temp[1],$temp);
+                    foreach($temp as $k=>$v){
+                        $_GET[$k]=$v;
+                    }
+                }
+                
                 if(sizeof($mca)==2){
                     array_unshift($mca, 'default');
                 }
             }
-            \Sooh2\Misc\ViewExt::$renderType = \Sooh2\Misc\ViewExt::type_json;
-            
-        }
-        if(isset($_GET[SOOH_ROUTE_VAR])){
-            $mca = explode('/', trim($_GET[SOOH_ROUTE_VAR],'/'));
-            if(sizeof($mca)==2){
-                array_unshift($mca, 'default');
-            }
-            unset($_GET[SOOH_ROUTE_VAR]);
         }else{
-            \Sooh2\Misc\Loger::getInstance()->sys_warning('todo:// likeyaf 里处理其他路由模式');
-            //todo:其它路由模式
+            if(SOOH_ROUTE_VAR){//变量模式
+                if(!isset($_GET[SOOH_ROUTE_VAR])){
+                    if(isset($_POST[SOOH_ROUTE_VAR])){
+
+                        $mca = explode('/', trim($_POST[SOOH_ROUTE_VAR],'/'));
+                    }else{
+                        $requri = array_shift(explode('?',$_SERVER['REQUEST_URI']));
+                        $mca = explode('/', trim($requri,'/'));
+                        if(defined(SOOH_ROUTE_VAR)){
+                            define('SOOH_ROUTE_VAR', 0);
+                        }
+                    }
+                }else{
+                    $mca = explode('/', trim($_GET[SOOH_ROUTE_VAR],'/'));
+                }
+                unset($_GET[SOOH_ROUTE_VAR]);
+            }else{//目录模式
+                $requri = array_shift(explode('?',$_SERVER['REQUEST_URI']));
+                $mca = explode('/', trim($requri,'/'));
+                while(sizeof($mca)>=4){
+                    $v = array_pop($mca);
+                    $k = array_pop($mca);
+                    $_GET[$k]=$v;
+                }
+            }
+        }
+
+        if(sizeof($mca)==2){
+            array_unshift($mca, 'default');
         }
         
+
         
         if(class_exists('\Yaf_Request_Simple',false)){
             $req = new \Yaf_Request_Simple();
@@ -49,18 +79,9 @@ class Yaf_simplest
         $req->setModuleName($mca[0]);
         $req->setControllerName($mca[1]);
         $req->setActionName($mca[2]);
-//         foreach ($_GET as $k=>$v){
-//             $req->setParam($k, $v);
-//         }
-//         foreach ($_POST as $k=>$v){
-//             $req->setParam($k, $v);
-//         }
 
         return $req;
     }
     
-    public static function fillRequestMCA($req,$routeVAR)
-    {
 
-    }
 }

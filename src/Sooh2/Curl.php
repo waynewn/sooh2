@@ -109,7 +109,7 @@ class Curl
         $posEnd = strpos($output, "\r\n\r\n",$posEnd);
         $this->headerReceived = substr($output, 0,$posEnd);
         
-        
+        $m = null;
         preg_match_all('/^Set-Cookie: (.*?);/m',$this->headerReceived,$m);
         foreach($m[1] as $s){
             $posEq = strpos($s, '=');
@@ -117,7 +117,7 @@ class Curl
         }
         return  substr($output, $posEnd+4);
     }
-    public function httpPost($url,$params,$arrCookies=null,$arrHeaders=null,$timeOut=5)
+    public function httpPost($url,$params,$arrHeaders=null,$timeOut=5)
     {
         if($arrHeaders!==null){
             if(!is_array($arrHeaders)){

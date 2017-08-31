@@ -10,6 +10,12 @@ class Uri
     protected $curModule = 'default';
     protected $curController = 'index';
     protected $curAction = 'index';
+    /**
+     * bool   false:   代表目录模式，即 http://host/m/c/a
+     * string varname: 代表单变量模式，即 http://host/?varname=m/c/a
+     * array  [m,c,a]: 代表使用一组变量指定， 即 http://host/?m=m&c=c&a=a
+     * @var mixed 
+     */
     protected $routeByVar = '__';
     protected $indexFilename='index.php';
     /**
@@ -45,6 +51,18 @@ class Uri
             }
         }
         return $url;
+    }
+    public function currentModule()
+    {
+        return $this->curModule;
+    }
+    public function currentController()
+    {
+        return $this->curController;
+    }
+    public function currentAction()
+    {
+        return $this->curAction;
     }
     /**
      * 同uri，区别是，变量值还原成 {str}的格式，即args 支持 [ 'k'=>'{toBeReplace}' ]

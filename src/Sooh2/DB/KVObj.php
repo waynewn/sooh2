@@ -20,14 +20,18 @@ class KVObj extends KVObj\KVObjBase
         }elseif(isset($objIni['default'])){
             $objIni = $objIni['default'];
         }else{
-            $objIni = array(1, array('default'));
+            $objIni = array('num'=>1, 'dbs'=>array('default'));
         }
-
-        $this->numSplit=array_shift($objIni);
-        $this->dbList = array_shift($objIni);
+        if(isset($objIni['num'])){
+            $this->numSplit=$objIni['num']-0;
+        }else{
+            $this->numSplit=1;
+        }
+        
+        $this->dbList = $objIni['dbs'];
 
         $this->objSplitIndex = $this->objSplitIndex%$this->numSplit;
-        $this->_tbName = 'tb_'.$this->className.'_{i}';//表名的默认模板
+        $this->_tbName = 'tb_'.strtolower($this->className).'_{i}';//表名的默认模板
 
     }
 //     /**
@@ -51,7 +55,7 @@ class KVObj extends KVObj\KVObjBase
     /**
      * 获取指定主键对应的kvobj实例， 为了ide正确识别返回的类，这个函数建议每个派生类都写一下
      * @param array $pkey
-     * @return \Sooh2\KVObj
+     * @return static
      */
     public static function getCopy($pkey)
     {
@@ -59,20 +63,22 @@ class KVObj extends KVObj\KVObjBase
         if($pkey===null){
             $pkey = $objIdentifier = $objSplitIndex = 0;
         }else{
+//            var_dump(self::calcPkeyVal($pkey));
             list($objIdentifier,$objSplitIndex) = self::calcPkeyVal($pkey);
         }
      
         if(!isset(self::$_copies[$c][$objIdentifier])){
             $o = new $c();
             $o->_pkey = $pkey;
-            $o->className = strtolower(array_pop(explode('\\',$c)));
+            $tmp  =explode('\\',$c);
+            $o->className = array_pop($tmp);
             $o->objIdentifer=$objIdentifier;
             $o->objSplitIndex=$objSplitIndex;
             $o->onInit();
             self::$_copies[$c][$objIdentifier]=$o;
         }
         if($objIdentifier===0){
-            self::$_copies[$c][$objIdentifier];
+            unset(self::$_copies[$c][$objIdentifier]);
             return $o;
         }else{
             return self::$_copies[$c][$objIdentifier];
@@ -92,7 +98,7 @@ class KVObj extends KVObj\KVObjBase
         for($i=0;$i<$tmp->numSplit;$i++){
             $dblist[]=$tmp->dbAndTbName($i);
         }
-        return KVObjLoop::getInstance($tmp->className, $dblist);
+        return KVObjLoop::getInstance(get_called_class(), $dblist);
     }
 
     /**

@@ -7,8 +7,17 @@ namespace Sooh2\DB\Redis;
  */
 class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
 {
+    protected $_tmpKvobjTable;
+    public function kvobjTable($tb=null)
+    {
+        if($tb==null){
+            return $this->_tmpKvobjTable;
+        }else{
+            return $this->_tmpKvobjTable=$tb;
+        }
+    }
     /**
-     * @var \Sooh2\DB\Connections
+     * @var \Sooh2\DB
      */
     public $connection;
     public function connect()
@@ -29,7 +38,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
                     $this->connection->connected->select($this->connection->dbName);
                 }
             }catch (\Exception $e){
-                throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, $e->getMessage(), "");
+                throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, $e->getMessage()." when try connect to {$this->connection->server} by {$this->connection->user}", "");
             }
         }
     }
@@ -51,7 +60,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         \Sooh2\Misc\Loger::getInstance()->sys_warning("TRACE chkerror in redis is ignored");
     }
 
-    public function skipError($skipThisError)
+    public function skipErrorLog($skipThisError)
     {
         \Sooh2\Misc\Loger::getInstance()->sys_warning("TRACE skipError in redis is ignored");
         return $this;

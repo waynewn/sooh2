@@ -49,7 +49,23 @@ class Ini
      */
     public function getRuntime($k)
     {
-        return $this->runtime[$k];
+        if(isset($this->runtime[$k])){
+            return $this->runtime[$k];
+        }else{
+            return null;
+        }
+    }
+    /**
+     * 获取serverid
+     * @return int
+     */
+    public function getServerId()
+    {
+        if($this->runtime['serverId']){
+            return $this->runtime['serverId']-0;
+        }else{
+            return 0;
+        }
     }
     /**
      * 获取预定义参数
