@@ -48,14 +48,21 @@ class Conn extends \Sooh2\DB\Interfaces\Conn {
                 $this->connect();
             }
             $this->exec(array(array('select',$dbName)));
-            $this->dbName = $dbName;
+            return $this->dbName = $dbName;
         }catch (\ErrorException $e){
             throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::dbNotExists, $e->getMessage(), "");
         }
     }
     public function restore2DB()
     {
-        return $this->change2DB($this->dbNamePre);
+    	if($this->dbNamePre){
+    		$to=$this->dbNamePre;
+    		$this->change2DB($to);
+    		$this->dbNamePre=null;
+    		return $to;
+    	}else{
+    		return null;
+    	}
     }
 }
 

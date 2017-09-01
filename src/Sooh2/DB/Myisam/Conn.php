@@ -42,14 +42,22 @@ class Conn extends \Sooh2\DB\Interfaces\Conn {
             $this->getConnection();
         }
         mysqli_select_db($this->connected, $dbName);
-        $this->dbName = $dbName;
+        return $this->dbName = $dbName;
         if(mysqli_errno($this->connected)){
             throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, " try use db $dbName failed, missing or no-rights?", "");
         }
     }
     public function restore2DB()
     {
-        return $this->change2DB($this->dbNamePre);
+    	if($this->dbNamePre){
+    		$to=$this->dbNamePre;
+    		$this->change2DB($to);
+    		$this->dbNamePre=null;
+    		return $to;
+    	}else{
+    		return null;
+    	}
+        
     }
 }
 

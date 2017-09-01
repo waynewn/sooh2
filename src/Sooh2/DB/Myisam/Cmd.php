@@ -67,6 +67,10 @@ class Cmd
             throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::dbNotExists, $e->getMessage(), "");
         }
     }
+    public function disconnect()
+    {
+    	$this->connection->disConnect();
+    }
     protected function chkError($stepErrorId=null)
     {
         $errno = mysqli_errno($this->connection->connected);

@@ -18,7 +18,16 @@ abstract class Conn {
     public $dbNameDefault;
     public $dbName;
     public $connected=null;
+    /**
+     * 进入指定数据库
+     * @param string $dbName
+     * @return string $dbname 成功返回 dbname
+     */
     abstract public function change2DB($dbName);
+    /**
+     * 回到上一个进入的数据库
+     * @return mixed 成功返回回到了哪个数据库，null 表示没有上一级了
+     */
     abstract public function restore2DB();
     public $dbNamePre=null;
 }

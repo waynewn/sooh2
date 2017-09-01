@@ -15,12 +15,6 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         }
     }
 
-    public function disconnect()
-    {
-        $this->connection->disConnect();
-    }
-    //public function createTable();
-    
     public function getRecord($obj, $fields, $where=null, $sortgrpby=null)
     {
         $this->connection->getConnection();

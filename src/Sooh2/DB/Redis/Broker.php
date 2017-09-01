@@ -16,70 +16,10 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             return $this->_tmpKvobjTable=$tb;
         }
     }
-    /**
-     * @var \Sooh2\DB
-     */
-    public $connection;
-    public function connect()
-    {
-        if(!$this->connection->connected){
-            try{
-                \Sooh2\Misc\Loger::getInstance()->sys_trace("TRACE: Redis connecting");
-                $this->connection->connected=new \Redis();
-                
-                $this->connection->connected->connect($this->connection->server, $this->connection->port);
-                $this->connection->connected->auth($this->connection->pass);
-
-                if(!$this->connection->connected){
-                    throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, "connect to redis-server {$this->connection->server}:{$this->connection->port} failed", "");
-                }
-                $this->connection->dbName = $this->connection->dbNameDefault - 0;
-                if($this->connection->dbName){
-                    $this->connection->connected->select($this->connection->dbName);
-                }
-            }catch (\Exception $e){
-                throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, $e->getMessage()." when try connect to {$this->connection->server} by {$this->connection->user}", "");
-            }
-        }
-    }
-    public function useDB($dbname)
-    {
-        try{
-            if(!$this->connection->connected){
-                $this->connect();
-            }
-            $this->exec(array(array('select',$dbname)));
-            $this->connection->dbName = $dbname;
-        }catch (\ErrorException $e){
-            throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::dbNotExists, $e->getMessage(), "");
-        }
-    }
-
-    protected function chkError($stepErrorId=null)
-    {
-        \Sooh2\Misc\Loger::getInstance()->sys_warning("TRACE chkerror in redis is ignored");
-    }
-
-    public function skipErrorLog($skipThisError)
-    {
-        \Sooh2\Misc\Loger::getInstance()->sys_warning("TRACE skipError in redis is ignored");
-        return $this;
-    }
-    protected $skip=array();
-    public function disconnect()
-    {
-        if($this->connection->connected){
-            $this->connection->connected->close();
-            $this->connection->connected=false;
-        }
-    }
-    //public function createTable();
     
     public function getRecord($obj, $fields, $where=null, $sortgrpby=null)
     {
-        if(!$this->connection->connected){
-            $this->connect();
-        }
+    	$this->connection->getConnection();
         $fullKey = $this->fmtObj($obj,$where);
         if(sizeof($fullKey)==1){
             $fullKey = current($fullKey);
@@ -135,9 +75,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         }
     }
     public function getRecords($obj, $fields, $where=null, $sortgrpby=null,$pageSize=null,$rsFrom=0){
-        if(!$this->connection->connected){
-            $this->connect();
-        }
+        $this->connection->getConnection();
         $fullKey = $this->fmtObj($obj,$where);
         $ret =array();
         foreach($fullKey as $i=>$k){
@@ -163,10 +101,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         * @see \Sooh2\DB\Interfaces\DB::updRecords()
         */
     public function updRecords($obj,$fields,$where=null){
-        if(!$this->connection->connected){
-            $this->connect();
-        }
-
+    	$this->connection->getConnection();
         $fullKey = $this->fmtObj($obj,$where);
         $numOk = 0;
         if(!empty($this->arrVer)){
@@ -208,9 +143,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         return ($numOk===0)?true:$numOk;
     }
     public function addRecord($obj,$fields,$pkey=null){
-        if(!$this->connection->connected){
-            $this->connect();
-        }
+    	$this->connection->getConnection();
         $fullKey = $this->fmtObj($obj,$pkey);
         if(sizeof($fullKey)==1){
             $fullKey = current($fullKey);
@@ -245,9 +178,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         
     }
     public function delRecords($obj,$where=null){
-        if(!$this->connection->connected){
-            $this->connect();
-        }
+    	$this->connection->getConnection();
         $fullKey = $this->fmtObj($obj,$where);
 
         $r = $this->exec(array(array('delete',$fullKey)));
@@ -257,55 +188,8 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             return $r;
         }
     }
-    public function exec($cmds)
-    {
-        if(!$this->connection->connected){
-            $this->connect();
-        }
-        $r = $this->_exec($cmds);
-        if($this->tmpSwapDB!=null){
-            $this->_exec(array(array('select',$this->tmpSwapDB)));
-            error_log("???????????????????????????".$this->connection->dbName . ' (tmp back to) '.$this->tmpSwapDB);
-            $this->connection->dbName = $this->tmpSwapDB;
-            $this->tmpSwapDB=null;
-        }
-        return $r;
-    }
-    protected $tmpSwapDB=null;
-    protected function fmtObj($obj, $where)
-    {
 
-        if(!is_string($obj) || empty($obj)){
-            throw new \ErrorException("obj name should be string ".gettype($obj)." or empty-string given");
-        }
-        $r = explode('.', $obj);
-        if(sizeof($r)==2){
-            if($this->connection->dbName!==$r[0]){
-                error_log("???????????????????????????".$this->connection->dbName . ' (tmp set to) '.$r[0]);
-                $this->tmpSwapDB = $this->connection->dbName;
-                $this->_exec(array(array('select',$r[0])));
-                $this->connection->dbName=$r[0];
-            }
-            $obj = $r[1];
-        }
-        return parent::fmtObj($obj, $where);
-    }
-    public function lastCmd()
-    {
-        return $this->_lastCmd;
-    }
-    protected $_lastCmd;
-    protected function _exec($cmds){
-        $lastRecordSet=null;
-        foreach($cmds as $cmd){
-            $f = array_shift($cmd);
-            $this->_lastCmd = $f.'('.json_encode($cmd).')';
-            \Sooh2\Misc\Loger::getInstance()->lib_trace('TRACE: try '.$this->_lastCmd);
-
-            $lastRecordSet = call_user_func_array(array($this->connection->connected,$f), $cmd);
-        }
-        return $lastRecordSet;
-    }
+    
 
     public function fetchResultAndFree($rsHandle)
     {
@@ -321,8 +205,6 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
     public function getRecordCount($obj, $where=null){
         throw new \ErrorException('todo');
     }
-    
-    
     
     public function ensureRecord($obj,$pkey,$fields,$arrMethodFields){throw new \ErrorException('todo');}
     public function safestr($str,$field=null,$obj=null){throw new \ErrorException('todo');}
