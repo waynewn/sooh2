@@ -23,6 +23,9 @@ class DB
     public static function getConn($arrConnection)
     {
         if(is_string($arrConnection)){
+			if(isset(self::$connPool[$arrConnection])){
+				return self::$connPool[$arrConnection];
+			}
             $arrConnection = json_decode($arrConnection,true);
         }
         if(is_array($arrConnection)){
@@ -208,8 +211,24 @@ class DB
             return sizeof($ks);
         }
     }
-    protected static $pool = array();
-    protected static $connPool=array();
+	public static function traceStatus()
+	{
+		$ret = array();
+		foreach(self::$connPool as $guid=>$c){
+			$ret['connection'][$guid] = $c->connected?'true':'false';
+		}
+		foreach(self::$pool as $guid=>$c){
+			$ret['dbStd'][$guid] = $c->connection->connected?'true':'false';
+		}
+		foreach(self::$otherPool as $guid=>$c){
+			$ret['dbExt'][$guid] = $c->connection->connected?'true':'false';
+		}
+		return $ret;
+	}
+
+	public static $otherPool=array();//扩展数据库类的集合
+    protected static $pool = array();//基础功能类实例集合
+    protected static $connPool=array();//connection实例集合
     public $dbType;
     public $guid;
     public $server;

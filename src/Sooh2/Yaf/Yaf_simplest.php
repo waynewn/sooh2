@@ -65,8 +65,8 @@ class Yaf_simplest
             }
         }
 
-        if(sizeof($mca)==2){
-            array_unshift($mca, 'default');
+        if(sizeof($mca)==2){//yaf默认的module是index
+            array_unshift($mca, DEFAULT_MODULE_NAME);
         }
         
 

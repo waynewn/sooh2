@@ -3,6 +3,106 @@ namespace Sooh2\DB\Myisam;
 
 class Cmd
 {
+	/**
+     * 
+     * @var \Sooh2\DB\Interfaces\Conn
+     */
+    public $connection;
+    public function connect()
+    {
+        
+        if(!$this->connection->connected){
+            try{
+                $h = $this->connection->getConnection();
+                if(!$h){
+                    throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, mysqli_connect_errno().":".mysqli_connect_error(), "");
+                }
+                $this->connection->change2DB($this->connection->dbNameDefault);
+                if(!empty($this->connection->charset)){
+                    $this->exec(array('set names '.$this->connection->charset));
+                }
+            }catch (\ErrorException $e){
+                throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, $e->getMessage()." when try connect to {$this->connection->server} by {$this->connection->user}", "");
+            }
+        }
+    }
+	public function skipErrorLog($skipThisError)
+    {
+        if($skipThisError===null){
+            if(sizeof($this->skip)>0){
+                $this->skip=array();
+            }
+        }else{
+            $this->skip[$skipThisError]=$skipThisError;
+        }
+        return $this;
+    }
+    protected $skip=array();
+	public function lastCmd()
+    {
+        return $this->_lastCmd;
+    }
+    protected $_lastCmd;
+    public function exec($cmds)
+    {
+        $this->connection->getConnection();
+        foreach($cmds as $cmd){
+            \Sooh2\Misc\Loger::getInstance()->lib_trace("TRACE: try $cmd");
+            $rs0 = mysqli_query($this->connection->connected, $this->_lastCmd=$cmd);
+            $this->chkError();
+        }
+        return $rs0;
+    }
+	public function useDB($dbname)
+    {
+        try{
+            if(empty($dbname)){
+                throw new \ErrorException('dbname not given');
+            }
+
+            if($this->connection->getConnection() && $this->connection->dbName!=$dbname){
+                $this->connection->change2DB($dbname);
+            }
+        }catch (\ErrorException $e){
+            throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::dbNotExists, $e->getMessage(), "");
+        }
+    }
+    protected function chkError($stepErrorId=null)
+    {
+        $errno = mysqli_errno($this->connection->connected);
+        
+        if ($errno) {
+            $message = mysqli_error($this->connection->connected);
+        
+            switch ($errno){
+                case 1054:$err=\Sooh2\DB\DBErr::fieldNotExists;break;
+                case 1045:$err=\Sooh2\DB\DBErr::connectError;break;
+                case 1049:$err=\Sooh2\DB\DBErr::connectError;break;
+                	
+                case 1050:$err=\Sooh2\DB\DBErr::tableExists;break;
+                case 1146:$err=\Sooh2\DB\DBErr::tableNotExists;break;
+                case 1060:$err=\Sooh2\DB\DBErr::fieldExists;break;
+                case 1062:
+                case 1022:
+                case 1069:
+                    //[1062]Duplicate entry '2' for key 'PRIMARY''
+                    $dupKey = explode('for key ', $message);
+                    $dupKey = trim(array_pop($dupKey),'\'');
+                    $err=\Sooh2\DB\DBErr::duplicateKey;
+                    break;
+                default:$err=\Sooh2\DB\DBErr::otherError; break;
+            }
+            $ex=new \Sooh2\DB\DBErr($err,'['.$errno.']'.$message, $this->_lastCmd);
+            if(!empty($dupKey)){
+                $ex->keyDuplicated=$dupKey;
+            }            
+            if(!isset($this->skip[$err])){
+                \Sooh2\Misc\Loger::getInstance()->sys_warning("[".$ex->getCode()."]".$ex->getMessage()."\n". $this->_lastCmd."\n".$ex->getTraceAsString());
+            }
+            $this->skip=array();
+            throw $ex;
+        }        
+    }
     protected function fmtObj($obj, $defaultDB)
     {
         if(!is_string($obj)){
