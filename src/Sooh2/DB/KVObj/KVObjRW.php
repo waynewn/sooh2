@@ -51,15 +51,15 @@ class KVObjRW implements Interfaces
      * @return mixed true on loaded already, pkey on first load ,null on no record
      */
     public function load($forceReload=false){
-        $ret = $this->_reader->load($forceReload);
-        return $ret;
+        $this->_reader->load($forceReload);
+        return $this;
     }
     /**
      * 从writer加载数据
      */
     protected function loadFromDisk()
     {
-        $ret = $this->_writer->load(true);
+        $this->_writer->load(true);
         $this->isWriterLoaded=true;
         $r = $this->_writer->dump();
         if(is_array($r)){
@@ -71,7 +71,7 @@ class KVObjRW implements Interfaces
             
             
         }
-        return $ret;
+        return $this;
     }
     /**
      * 保存到数据库，可以尝试几次（保存失败后重新加载，调用预定义的操作函数，再次尝试保存），

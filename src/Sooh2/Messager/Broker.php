@@ -9,7 +9,7 @@ namespace Sooh2\Messager;
 abstract class Broker {
     protected static $_instance=null;
     /**
-     * @return \Sooh2\Messager\Broker
+     * @return static
      */
     public static function getInstance($newInstance=null)
     {

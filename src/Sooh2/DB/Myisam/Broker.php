@@ -15,9 +15,13 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         }
     }
 
+    //public function createTable();
+    
     public function getRecord($obj, $fields, $where=null, $sortgrpby=null)
     {
-        $this->connection->getConnection();
+        if(!$this->connection->connected){
+            $this->connect();
+        }
         $this->_lastCmd = 'SELECT '.(is_array($fields)?implode(',', $fields):$fields)
                         .' from '.$this->fmtObj($obj, $this->connection->dbName)
                         .$this->buildWhere($where)
@@ -52,7 +56,9 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
     
     
     public function getRecords($obj, $fields, $where=null, $sortgrpby=null,$pageSize=null,$rsFrom=0){
-        $this->connection->getConnection();
+        if(!$this->connection->connected){
+            $this->connect();
+        }
         $this->_lastCmd = 'SELECT '.(is_array($fields)?implode(',', $fields):$fields)
         .' from '.$this->fmtObj($obj, $this->connection->dbName)
         .$this->buildWhere($where)
@@ -68,7 +74,9 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         return $rs;
     }
     public function getCol($obj, $field, $where=null, $sortgrpby=null,$pageSize=null,$rsFrom=0){
-        $this->connection->getConnection();
+        if(!$this->connection->connected){
+            $this->connect();
+        }
         $this->_lastCmd = 'SELECT '.(is_array($field)?implode(',', $field):$field)
         .' from '.$this->fmtObj($obj, $this->connection->dbName)
         .$this->buildWhere($where)
@@ -84,7 +92,9 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         return $rs;
     }
     public function getPair($obj, $fieldKey,$fieldVal, $where=null, $sortgrpby=null,$pageSize=null,$rsFrom=0){
-        $this->connection->getConnection();
+        if(!$this->connection->connected){
+            $this->connect();
+        }
         $this->_lastCmd = 'SELECT '.$fieldKey.','.$fieldVal
         .' from '.$this->fmtObj($obj, $this->connection->dbName)
         .$this->buildWhere($where)
@@ -100,7 +110,9 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         return $rs;
     }
     public function getRecordCount($obj, $where=null){
-        $this->connection->getConnection();
+        if(!$this->connection->connected){
+            $this->connect();
+        }
         $this->_lastCmd = 'SELECT count(*)'
         .' from '.$this->fmtObj($obj, $this->connection->dbName)
         .$this->buildWhere($where);
@@ -111,7 +123,9 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         return $r[0];
     }
     public function updRecords($obj,$fields,$where=null){
-        $this->connection->getConnection();
+        if(!$this->connection->connected){
+            $this->connect();
+        }
         $this->_lastCmd = 'update '
             .$this->fmtObj($obj, $this->connection->dbName)
             .' set '. $this->buildFieldsForUpdate($fields)
@@ -124,7 +138,9 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         return $affectedRows>0?$affectedRows:true;
     }
     public function addRecord($obj,$fields,$pkey=null){
-        $this->connection->getConnection();
+        if(!$this->connection->connected){
+            $this->connect();
+        }
         $this->_lastCmd = 'INSERT into '
             .$this->fmtObj($obj, $this->connection->dbName)
             .' set '.$this->buildFieldsForUpdate($fields,$pkey);
@@ -136,7 +152,9 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         return $insertId>0?$insertId:true;
     }
     public function delRecords($obj,$where=null){
-        $this->connection->getConnection();
+        if(!$this->connection->connected){
+            $this->connect();
+        }
         $this->_lastCmd = 'delete from '
             .$this->fmtObj($obj, $this->connection->dbName)
             .' '.$this->buildWhere($where);
@@ -149,6 +167,15 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
     }
     
     
-    public function ensureRecord($obj,$pkey,$fields,$arrMethodFields){throw new \ErrorException('todo');}
+    public function ensureRecord($obj,$pkey,$fields,$fieldsWithValOnUpdate)
+    {
+        $this->_lastCmd = 'INSERT into '
+            .$this->fmtObj($obj, $this->connection->dbName)
+            .' set '.$this->buildFieldsForUpdate($fields,$pkey).' ON DUPLICATE KEY UPDATE '.$this->buildFieldsForUpdate($fieldsWithValOnUpdate,$pkey);
+
+        $this->exec(array($this->_lastCmd));
+        
+        return true;
+    }
 }
 

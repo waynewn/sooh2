@@ -51,10 +51,12 @@ abstract  class BrokerWithLog extends Broker{
     public function sendRetry($logid,$wayid){
         $logclass = $this->getLogerClassname();
         $this->_loger = $logclass::getCopy($logid);
-        if($this->_loger->load()){
-            \Sooh2\Misc\Loger::getInstance()->app_trace("EvtMSG[$evtmsgid] send $content to ". json_encode($user)." failed as : log record create failed");
+        $this->_loger->load();
+        if(!$this->_loger->exist()){
+            \Sooh2\Misc\Loger::getInstance()->app_trace("EvtMSG[$evtmsgid] send $content to ". json_encode($user)." failed as : log record missing");
             return;
-        }
-        return parent::sendCustomMsg($this->_loger->getTitle(), $this->_loger->getContent(), $this->_loger->getUsers(), array($wayid), 'retry');
+        }else{
+            return parent::sendCustomMsg($this->_loger->getTitle(), $this->_loger->getContent(), $this->_loger->getUsers(), array($wayid), 'retry');
+        }   
     }
 }

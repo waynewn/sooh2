@@ -3,39 +3,6 @@ namespace Sooh2\DB\Cases;
 
 /**
  * 流水账:
- * 设计要点：
- * 1）没有使用db的事务逻辑，所以根据业务情况可能需要一个辅助程序处理超时
- * 2）由于使用了整数记录金额，所以像人民币元请转换成分存储
- * 3）因具体到个人的时候交易频率不高，所以加记录的地方没做逻辑优化
- * 4）如果一个人连续多笔失败（超出重试次数），则无法继续交易，需要补一条成功的记录（对账记录）
- *
- * 基本用法
- * 1）kvobj的设置，这里不重复了
- * 2）
-        $alog = \Sooh2\DB\Cases\AccountLog::getRecentCopy($obj);
-        $alog->load();
-        增加一条交易记录
-        $transcationid= $alog->transactionStart(100, 'recharge', 'recharge100');
-        $alog->transactionCommit(); 或者 ->transactionRollback()
-        获取余额
-        $ret = $alog->getBalance();
-        获取帐户类型
-        $alog->getAccountType();
- * 
-CREATE TABLE `tb_accountlog_0` (
-  `alUserId` varchar(36)  NOT NULL,
-  `alRecordId` bigint(20) NOT NULL COMMENT '递增,记录用户的第几笔交易,',
-  `alOrderType` varchar(36)  NOT NULL DEFAULT 'unset' COMMENT '单订类型（系统保留了一个rollback）',
-  `alOrderId` varchar(64) NOT NULL DEFAULT '' COMMENT '订单号（rollback时就是alRecordId）',
-  `alStatus` tinyint(2) NOT NULL DEFAULT '0' COMMENT '-1：新增;0 成功; 1：回滚;2 超时回滚',
-  `chg` int(11) NOT NULL DEFAULT '0' COMMENT '金额变化',
-  `balance` bigint(20) NOT NULL DEFAULT '0' COMMENT '变化后的余额',
-  `ymd` int(11) NOT NULL DEFAULT '0' COMMENT '时间：年月日',
-  `dtCreate` int(11) NOT NULL DEFAULT '0' COMMENT '创建时间',
-  `rowVersion` int(11) NOT NULL DEFAULT '1' COMMENT '遵循KVObj，但改为记录这个用户的第几笔流水用了',
-  index st (alStatus),
-  PRIMARY KEY (alUserId,alRecordId)
-)  DEFAULT CHARSET=utf8
  *     
  * @author simon.wang
  */
@@ -73,16 +40,25 @@ class AccountLog extends \Sooh2\DB\KVObj{
     /**
      * 获取流水记录
      * @param array $where 参数给出过滤条件，比如： array(alStatus=>0)  只要成功的记录
-     * @param int $pagesize 获取最近的多少条记录
+     * @param mixed $pagesize 获取最近的多少条记录 或 pager 类
      * @return array
      */
     public function getHistory($where=array(),$pagesize=30)
     {
+        if(is_numeric($pagesize)){
+            $pager = new \Sooh2\DB\Pager($pagesize);
+            $pager->init(-1,1);
+        }else{
+            $pager = $pagesize;
+        }
         unset($where['alUserId']);
         unset($where['=alUserId']);
-        $where = array_merge(array('alUserId'=>$this->_pkey['alUserId']),$where);
+                
         $db = $this->dbWithTablename();
-        return $db->getRecords($db->kvobjTable(), '*',$where,'rsort alRecordId',$pagesize);
+        return $db->getRecords($db->kvobjTable(), '*',
+                array_merge(array('alUserId'=>$this->_pkey['alUserId']),$where),
+                'rsort alRecordId',
+                $pager->page_size,$pager->rsFrom());
     }
     
     public static function getTheOne($userId,$recordid)
@@ -147,7 +123,17 @@ class AccountLog extends \Sooh2\DB\KVObj{
             }
         }
     }
-    
+    public function transactionDirectly($change,$orderType,$orderId,$arrExtraFields=null)
+    {
+        if($arrExtraFields===null){
+            $arrExtraFields=array('alStatus'=>self::status_ok);
+        }elseif(is_array($arrExtraFields)){
+            $arrExtraFields['alStatus'] = self::status_ok;
+        }else{
+            throw new \ErrorException('arrExtraFields should be array');
+        }
+        return $this->transaction_new($change, $orderType, $orderId, $arrExtraFields);
+    }
     
     /**
      * 创建一条流水,成功返回该用户记录流水id
@@ -161,6 +147,17 @@ class AccountLog extends \Sooh2\DB\KVObj{
      */
     public function transactionStart($change,$orderType,$orderId,$arrExtraFields=null)
     {
+        if($arrExtraFields===null){
+            $arrExtraFields=array('alStatus'=>self::status_new);
+        }elseif(is_array($arrExtraFields)){
+            $arrExtraFields['alStatus'] = self::status_new;
+        }else{
+            throw new \ErrorException('arrExtraFields should be array');
+        }
+        return $this->transaction_new($change, $orderType, $orderId, $arrExtraFields);
+    }
+    protected function transaction_new($change,$orderType,$orderId,$arrExtraFields=null)
+    {
         $fields = array('alUserId'=>$this->_pkey['alUserId'],'alRecordId'=>1);
         $fields['alOrderType'] = $orderType;
         $fields['alOrderId'] = $orderId;
@@ -169,14 +166,10 @@ class AccountLog extends \Sooh2\DB\KVObj{
         $dt = time();
         $fields['ymd']=date('Ymd',$dt);
         $fields['dtCreate']=$dt;
-        if(is_array($arrExtraFields)){
-            foreach($arrExtraFields as $k=>$v){
-                $fields[$k] = $v;
-            }
-        }elseif($arrExtraFields!==null){
-            throw new \ErrorException('arrExtraFields should be array');
+        foreach($arrExtraFields as $k=>$v){
+            $fields[$k] = $v;
         }
-        $fields['alStatus']=self::status_new;
+
         $fields['rowVersion'] = 1;
         
         $retry = 10;

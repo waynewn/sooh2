@@ -7,13 +7,12 @@ class Conn extends \Sooh2\DB\Interfaces\Conn {
      * @return \Sooh2\DB\Interfaces\Conn
      * @throws \Sooh2\DB\DBErr
      */
-    public function getConnection()
+    public function getConnHandle()
     {
         if($this->connected){
             return $this->connected;
         }
         try{
-            \Sooh2\Misc\Loger::getInstance()->sys_trace("TRACE: myisam connecting todo(usedb)");
             $this->connected=mysqli_connect($this->server,$this->user,$this->pass,null,$this->port);
             if(!$this->connected){
                 throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, mysqli_connect_errno().":".mysqli_connect_error(), "");
@@ -28,7 +27,7 @@ class Conn extends \Sooh2\DB\Interfaces\Conn {
         }
 
     }
-    public function disConnect()
+    public function freeConnHandle()
     {
         if($this->connected){
             mysqli_close($this->connected);
@@ -37,27 +36,22 @@ class Conn extends \Sooh2\DB\Interfaces\Conn {
     }
     public function change2DB($dbName)
     {
-        $this->dbNamePre = $this->dbName;
+        
         if($this->connected===false){
-            $this->getConnection();
+            $this->getConnHandle();
         }
         mysqli_select_db($this->connected, $dbName);
-        return $this->dbName = $dbName;
+        
         if(mysqli_errno($this->connected)){
             throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, " try use db $dbName failed, missing or no-rights?", "");
         }
+        $this->dbNamePre = $this->dbName;
+        $this->dbName = $dbName;
+        return $this->dbNamePre;
     }
     public function restore2DB()
     {
-    	if($this->dbNamePre){
-    		$to=$this->dbNamePre;
-    		$this->change2DB($to);
-    		$this->dbNamePre=null;
-    		return $to;
-    	}else{
-    		return null;
-    	}
-        
+        return $this->change2DB($this->dbNamePre);
     }
 }
 

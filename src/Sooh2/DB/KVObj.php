@@ -35,23 +35,15 @@ class KVObj extends KVObj\KVObjBase
 
     }
 //     /**
-//      * 针对主键是一个数字串的情况使用取余的计算方式，默认取尾数，这里可以改成使用开头部分
+//      * 针对主键是一个的情况使用取余的计算方式
 //      * @param string $n
 //      */
 //     protected static function calcPkeyValOfNumber($n)
 //     {
-//         return substr(sprintf('%010d',$n),0,-4)-0;
+//         return array($n,$n%10000)
 //     }
 
     
-//     /**
-//      * 针对主键是一个数字串的情况的计算方式，其它情况参看 calcPkeyVal()
-//      * @param string $n
-//      */
-//     protected static function calcPkeyValOfNumber($n)
-//     {
-//         return [$n,substr($n,-4)-0];
-//     }
     /**
      * 获取指定主键对应的kvobj实例， 为了ide正确识别返回的类，这个函数建议每个派生类都写一下
      * @param array $pkey
@@ -163,10 +155,9 @@ class KVObj extends KVObj\KVObjBase
     public function load($forceReload=false)
     {
         if($forceReload==true || empty($this->r)){
-            return $this->reload();
-        }else{
-            return true;
+            $this->reload();
         }
+        return $this;
     }
     
     /**

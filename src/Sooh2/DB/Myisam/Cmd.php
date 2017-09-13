@@ -3,7 +3,7 @@ namespace Sooh2\DB\Myisam;
 
 class Cmd
 {
-	/**
+    /**
      * 
      * @var \Sooh2\DB\Interfaces\Conn
      */
@@ -13,7 +13,7 @@ class Cmd
         
         if(!$this->connection->connected){
             try{
-                $h = $this->connection->getConnection();
+                $h = $this->connection->getConnHandle();
                 if(!$h){
                     throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, mysqli_connect_errno().":".mysqli_connect_error(), "");
                 }
@@ -26,50 +26,19 @@ class Cmd
             }
         }
     }
-	public function skipErrorLog($skipThisError)
-    {
-        if($skipThisError===null){
-            if(sizeof($this->skip)>0){
-                $this->skip=array();
-            }
-        }else{
-            $this->skip[$skipThisError]=$skipThisError;
-        }
-        return $this;
-    }
-    protected $skip=array();
-	public function lastCmd()
-    {
-        return $this->_lastCmd;
-    }
-    protected $_lastCmd;
-    public function exec($cmds)
-    {
-        $this->connection->getConnection();
-        foreach($cmds as $cmd){
-            \Sooh2\Misc\Loger::getInstance()->lib_trace("TRACE: try $cmd");
-            $rs0 = mysqli_query($this->connection->connected, $this->_lastCmd=$cmd);
-            $this->chkError();
-        }
-        return $rs0;
-    }
-	public function useDB($dbname)
+    public function useDB($dbname)
     {
         try{
             if(empty($dbname)){
                 throw new \ErrorException('dbname not given');
             }
-
-            if($this->connection->getConnection() && $this->connection->dbName!=$dbname){
+            $this->connection->getConnHandle();
+            if($this->connection->dbName!=$dbname){
                 $this->connection->change2DB($dbname);
             }
         }catch (\ErrorException $e){
             throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::dbNotExists, $e->getMessage(), "");
         }
-    }
-    public function disconnect()
-    {
-    	$this->connection->disConnect();
     }
     protected function chkError($stepErrorId=null)
     {
@@ -101,11 +70,45 @@ class Cmd
                 $ex->keyDuplicated=$dupKey;
             }            
             if(!isset($this->skip[$err])){
-                \Sooh2\Misc\Loger::getInstance()->sys_warning("[".$ex->getCode()."]".$ex->getMessage()."\n". $this->_lastCmd."\n".$ex->getTraceAsString());
+                \Sooh2\Misc\Loger::getInstance()->sys_warning("[".$ex->getCode()."]".$ex->getMessage()."\n". $this->_lastCmd." by ".$this->connection->guid."\n".$ex->getTraceAsString());
             }
             $this->skip=array();
             throw $ex;
         }        
+    }
+
+    public function skipErrorLog($skipThisError)
+    {
+        if($skipThisError===null){
+            if(sizeof($this->skip)>0){
+                $this->skip=array();
+            }
+        }else{
+            $this->skip[$skipThisError]=$skipThisError;
+        }
+        return $this;
+    }
+    protected $skip=array();
+    public function disconnect()
+    {
+        $this->connection->freeConnHandle();
+    }
+    public function lastCmd()
+    {
+        return $this->_lastCmd;
+    }
+    protected $_lastCmd;
+    public function exec($cmds)
+    {
+        if(!$this->connection->connected){
+            $this->connect();
+        }
+        foreach($cmds as $cmd){
+            \Sooh2\Misc\Loger::getInstance()->lib_trace("TRACE: try $cmd");
+            $rs0 = mysqli_query($this->connection->connected, $this->_lastCmd=$cmd);
+            $this->chkError();
+        }
+        return $rs0;
     }
     protected function fmtObj($obj, $defaultDB)
     {

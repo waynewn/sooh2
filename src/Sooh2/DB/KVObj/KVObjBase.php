@@ -114,9 +114,9 @@ class KVObjBase
             throw new \ErrorException('dbConf of kvobj:'.$this->className.' not found');
         }
         if($splitIndex==null){
-            return $this->dbTbUsed = array(\Sooh2\DB::getConnection($dbConf),$tbName);
+            return $this->dbTbUsed = array(\Sooh2\DB::getDB($dbConf),$tbName);
         }else{
-            return array(\Sooh2\DB::getConnection($dbConf),$tbName);
+            return array(\Sooh2\DB::getDB($dbConf),$tbName);
         }
     }
     public function dump()
@@ -138,20 +138,12 @@ class KVObjBase
      */
     protected static function calcPkeyVal($pkey)
     {
+        if(!is_array($pkey)){
+            throw new \ErrorException('pkey should be array, '.var_export($pkey,true).' given');
+        }
         if(sizeof($pkey)==1){
-            if(!is_array($pkey)){
-                throw new \ErrorException('pkey should be array, '.var_export($pkey,true).' given');
-            }
-            $n = current($pkey);
-            if(is_numeric($n) && !strpos($n, '.') && !strpos($n, 'e') && !strpos($n, 'E')){
-                return array($n, self::calcPkeyValOfNumber($n));
-            }else{
-                $s = md5($n);
-                $n1 = base_convert(substr($s,-3), 16, 10);
-                $n2 = base_convert(substr($s,-6,3), 16, 10);
-                $n = $n2*100+($n1%100);
-                return array($n,$n%10000);
-            }
+            return self::calcPkeyValOfOnefield(current($pkey));
+
         }else{
             $s0 = json_encode($pkey);
             $s = md5($s0);
@@ -165,9 +157,17 @@ class KVObjBase
      * 针对主键是一个数字串的情况使用取余的计算方式，其它情况参看 calcPkeyVal()
      * @param string $n
      */
-    protected static function calcPkeyValOfNumber($n)
+    protected static function calcPkeyValOfOnefield($n)
     {
-        return substr($n,-4)-0;
+        if(is_numeric($n) && !strpos($n, '.') && !strpos($n, 'e') && !strpos($n, 'E')){
+            return array($n,substr($n,-4)-0);
+        }else{
+            $s = md5($n);
+            $n1 = base_convert(substr($s,-3), 16, 10);
+            $n2 = base_convert(substr($s,-6,3), 16, 10);
+            $n = $n2*100+($n1%100);
+            return array($n,$n%10000);
+        }
     }
 
 

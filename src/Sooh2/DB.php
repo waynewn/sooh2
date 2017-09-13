@@ -23,9 +23,6 @@ class DB
     public static function getConn($arrConnection)
     {
         if(is_string($arrConnection)){
-			if(isset(self::$connPool[$arrConnection])){
-				return self::$connPool[$arrConnection];
-			}
             $arrConnection = json_decode($arrConnection,true);
         }
         if(is_array($arrConnection)){
@@ -76,6 +73,7 @@ class DB
             return self::$connPool[$tmp->guid]=$tmp;
         }else{
             if(!empty($arrConnection->guid)){
+                
                 //////////////////////////??????????????????????????
                 return self::$connPool[$tmp->guid];
             }else{
@@ -116,75 +114,76 @@ class DB
      */
     public static function getConnection($arrConnection)
     {
-        \Sooh2\Misc\Loger::getInstance()->sys_warning('deprecated use getDB() instead ');
-        if(is_string($arrConnection)){
-            $arrConnection = json_decode($arrConnection,true);
-        }
-        if(is_array($arrConnection)){
-            $tmp = new DB();
-            if(!empty($arrConnection['dbType'])){
-                $tmp->dbType = $arrConnection['dbType'];
-            }else{
-                throw new \ErrorException('missiong dbType in db-connection-ini');
-            }
-            if(!empty($arrConnection['server'])){
-                $tmp->server = $arrConnection['server'];
-            }else{
-                throw new \ErrorException('missiong server in db-connection-ini');
-            }
-            if(empty($arrConnection['port'])){
-                if($arrConnection['port']===0){
-                    $tmp->port = $arrConnection['port'];
-                }else{
-                    throw new \ErrorException('invalid port in db-connection-ini');
-                }
-            }else{
-                if(is_numeric($arrConnection['port'])){
-                    $tmp->port = $arrConnection['port'];
-                }else{
-                    throw new \ErrorException('invalid port in db-connection-ini');
-                }
-            }
-            if(!empty($arrConnection['user'])){
-                $tmp->user = $arrConnection['user'];
-            }else{
-                throw new \ErrorException('missiong user in db-connection-ini');
-            }
-            $tmp->guid = $tmp->user.'@'.$tmp->server.':'.$tmp->port;
-            if(!empty($arrConnection['charset'])){
-                $tmp->charset = $arrConnection['charset'];
-            }
-            if(!empty($arrConnection['pass'])){
-                $tmp->pass = $arrConnection['pass'];
-            }else{
-                throw new \ErrorException('missiong pass in db-connection-ini');
-            }
-            $tmp->dbNameDefault = $arrConnection['dbName'];
-
-            if(isset(self::$pool[$tmp->guid])){
-                $cmp = self::$pool[$tmp->guid]->connection;
-                if($cmp->dbNameDefault === $tmp->dbNameDefault && $cmp->pass === $tmp->pass){
-                    return self::$pool[$tmp->guid];
-                }else{
-                    throw new \ErrorException('finding different pass or dbname for same db-connection');
-                }
-            }else{
-                $c = "\\Sooh2\\DB\\".$tmp->dbType."\\Broker";
-                if(!class_exists($c,false)){
-                    include __DIR__."/DB/".$tmp->dbType."/Broker.php";
-                }
-                $db = new $c;
-                $db->connection = $tmp;
-                return self::$pool[$tmp->guid]=$db;
-            }
-        }else{
-            if(!empty($arrConnection->connection->guid)){
-                //////////////////////////??????????????????????????
-                return $arrConnection;
-            }else{
-                throw new \ErrorException('param-given is not a connection class, configuration error?');
-            }
-        }
+        return self::getDB($arrConnection);
+//        \Sooh2\Misc\Loger::getInstance()->sys_warning('deprecated use getDB() instead ');
+//        if(is_string($arrConnection)){
+//            $arrConnection = json_decode($arrConnection,true);
+//        }
+//        if(is_array($arrConnection)){
+//            $tmp = new DB();
+//            if(!empty($arrConnection['dbType'])){
+//                $tmp->dbType = $arrConnection['dbType'];
+//            }else{
+//                throw new \ErrorException('missiong dbType in db-connection-ini');
+//            }
+//            if(!empty($arrConnection['server'])){
+//                $tmp->server = $arrConnection['server'];
+//            }else{
+//                throw new \ErrorException('missiong server in db-connection-ini');
+//            }
+//            if(empty($arrConnection['port'])){
+//                if($arrConnection['port']===0){
+//                    $tmp->port = $arrConnection['port'];
+//                }else{
+//                    throw new \ErrorException('invalid port in db-connection-ini');
+//                }
+//            }else{
+//                if(is_numeric($arrConnection['port'])){
+//                    $tmp->port = $arrConnection['port'];
+//                }else{
+//                    throw new \ErrorException('invalid port in db-connection-ini');
+//                }
+//            }
+//            if(!empty($arrConnection['user'])){
+//                $tmp->user = $arrConnection['user'];
+//            }else{
+//                throw new \ErrorException('missiong user in db-connection-ini');
+//            }
+//            $tmp->guid = $tmp->user.'@'.$tmp->server.':'.$tmp->port;
+//            if(!empty($arrConnection['charset'])){
+//                $tmp->charset = $arrConnection['charset'];
+//            }
+//            if(!empty($arrConnection['pass'])){
+//                $tmp->pass = $arrConnection['pass'];
+//            }else{
+//                throw new \ErrorException('missiong pass in db-connection-ini');
+//            }
+//            $tmp->dbNameDefault = $arrConnection['dbName'];
+//
+//            if(isset(self::$pool[$tmp->guid])){
+//                $cmp = self::$pool[$tmp->guid]->connection;
+//                if($cmp->dbNameDefault === $tmp->dbNameDefault && $cmp->pass === $tmp->pass){
+//                    return self::$pool[$tmp->guid];
+//                }else{
+//                    throw new \ErrorException('finding different pass or dbname for same db-connection');
+//                }
+//            }else{
+//                $c = "\\Sooh2\\DB\\".$tmp->dbType."\\Broker";
+//                if(!class_exists($c,false)){
+//                    include __DIR__."/DB/".$tmp->dbType."/Broker.php";
+//                }
+//                $db = new $c;
+//                $db->connection = $tmp;
+//                return self::$pool[$tmp->guid]=$db;
+//            }
+//        }else{
+//            if(!empty($arrConnection->connection->guid)){
+//                //////////////////////////??????????????????????????
+//                return $arrConnection;
+//            }else{
+//                throw new \ErrorException('param-given is not a connection class, configuration error?');
+//            }
+//        }
     }
     /**
      * release one or all connections
@@ -211,24 +210,8 @@ class DB
             return sizeof($ks);
         }
     }
-	public static function traceStatus()
-	{
-		$ret = array();
-		foreach(self::$connPool as $guid=>$c){
-			$ret['connection'][$guid] = $c->connected?'true':'false';
-		}
-		foreach(self::$pool as $guid=>$c){
-			$ret['dbStd'][$guid] = $c->connection->connected?'true':'false';
-		}
-		foreach(self::$otherPool as $guid=>$c){
-			$ret['dbExt'][$guid] = $c->connection->connected?'true':'false';
-		}
-		return $ret;
-	}
-
-	public static $otherPool=array();//扩展数据库类的集合
-    protected static $pool = array();//基础功能类实例集合
-    protected static $connPool=array();//connection实例集合
+    public static $pool = array();
+    protected static $connPool=array();
     public $dbType;
     public $guid;
     public $server;

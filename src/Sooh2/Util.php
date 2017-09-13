@@ -138,5 +138,15 @@ class Util
         pclose(popen($cmd, 'r'));
         return $cmd;
     }
+
+    //判断是否是手机号
+    public static function isPhone($phone){
+
+        if(preg_match("/^1[34578]{1}\d{9}$/",$phone)){
+            return true;
+        }else{
+            return false;
+        }
+    }
 }
 

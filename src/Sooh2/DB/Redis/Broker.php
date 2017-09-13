@@ -16,10 +16,26 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             return $this->_tmpKvobjTable=$tb;
         }
     }
+
+    protected function chkError($stepErrorId=null)
+    {
+        \Sooh2\Misc\Loger::getInstance()->sys_warning("TRACE chkerror in redis is ignored");
+    }
+
+    public function skipErrorLog($skipThisError)
+    {
+        \Sooh2\Misc\Loger::getInstance()->sys_warning("TRACE skipError in redis is ignored");
+        return $this;
+    }
+    protected $skip=array();
+
+    //public function createTable();
     
     public function getRecord($obj, $fields, $where=null, $sortgrpby=null)
     {
-    	$this->connection->getConnection();
+        if(!$this->connection->connected){
+            $this->connect();
+        }
         $fullKey = $this->fmtObj($obj,$where);
         if(sizeof($fullKey)==1){
             $fullKey = current($fullKey);
@@ -75,7 +91,9 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         }
     }
     public function getRecords($obj, $fields, $where=null, $sortgrpby=null,$pageSize=null,$rsFrom=0){
-        $this->connection->getConnection();
+        if(!$this->connection->connected){
+            $this->connect();
+        }
         $fullKey = $this->fmtObj($obj,$where);
         $ret =array();
         foreach($fullKey as $i=>$k){
@@ -101,7 +119,10 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         * @see \Sooh2\DB\Interfaces\DB::updRecords()
         */
     public function updRecords($obj,$fields,$where=null){
-    	$this->connection->getConnection();
+        if(!$this->connection->connected){
+            $this->connect();
+        }
+
         $fullKey = $this->fmtObj($obj,$where);
         $numOk = 0;
         if(!empty($this->arrVer)){
@@ -143,7 +164,9 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         return ($numOk===0)?true:$numOk;
     }
     public function addRecord($obj,$fields,$pkey=null){
-    	$this->connection->getConnection();
+        if(!$this->connection->connected){
+            $this->connect();
+        }
         $fullKey = $this->fmtObj($obj,$pkey);
         if(sizeof($fullKey)==1){
             $fullKey = current($fullKey);
@@ -178,7 +201,9 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         
     }
     public function delRecords($obj,$where=null){
-    	$this->connection->getConnection();
+        if(!$this->connection->connected){
+            $this->connect();
+        }
         $fullKey = $this->fmtObj($obj,$where);
 
         $r = $this->exec(array(array('delete',$fullKey)));
@@ -188,8 +213,6 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             return $r;
         }
     }
-
-    
 
     public function fetchResultAndFree($rsHandle)
     {
@@ -205,7 +228,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
     public function getRecordCount($obj, $where=null){
         throw new \ErrorException('todo');
     }
-    
+
     public function ensureRecord($obj,$pkey,$fields,$arrMethodFields){throw new \ErrorException('todo');}
     public function safestr($str,$field=null,$obj=null){throw new \ErrorException('todo');}
 }

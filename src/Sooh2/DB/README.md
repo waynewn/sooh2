@@ -12,9 +12,16 @@
 - redis 可以直接存取
 - mysql 保存时会转换成json，读出时候不会自动还原
 
-KVObj 配置
+DB 不依赖 Sooh2\Misc\Ini
+KVObj 依赖 Sooh2\Misc\Ini
 
-配置文件查找顺序  KVObj.classname => KVObj.default => 默认值 [1,'defaulr']
+KVObj 配置文件查找顺序  KVObj.classname => KVObj.default => 默认值 [1,'defaulr']
+KVObj 的 dbWithTablename 要在用之前现获取（当链接到同一个服务器时，底层的db是同一个实例，所以后面一个获取到的会覆盖前一个的table）
+KVObj 的getCopy（）容易改成 getCopy($uid) {return parent::getCopy(['uid'=>$uid]);},这样改，在继承层级多了以后，容易错，需要进一步改成{
+    if($uid===null){return parent::getCopy(null);}
+    elseif(is_array($uid)){return parent::getCopy($uid);}
+    else {return parent::getCopy(['uid'=>$uid]);}
+}
 
 updRecords 的结果
 数字是应对知道实际改变记录数量的情况

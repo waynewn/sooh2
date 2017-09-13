@@ -32,28 +32,7 @@ interface DB
     public function fetchResultAndFree($rsHandle);//部分数据库，比如mysql 用的上
     
     // test.tb1, ['pkey'=>vale1],['field1'=>'value2'],['field1','+field1']
-    public function ensureRecord($obj,$pkey,$fields,$arrMethodFields);
-//     {
-//         $exists = $this->getRecord($obj,'*',array('AND'=>$pkey));
-//         if(!empty($exists)){
-//             $method = array_shift($arrMethodFields);
-//             $tmp = array();
-//             if($method==='='){
-//                 foreach($arrMethodFields as $k){
-//                     $tmp[$k]=$fields[$k];
-//                 }
-//             }else{
-//                 foreach($arrMethodFields as $k){
-//                     $tmp[$k]="$k+".$fields[$k];????safe_string
-//                 }
-//             }
-//             $this->updRecord($obj,$tmp,$pkey);
-//         }else{
-//             foreach($pkey as $k=>$v){
-//                 $fields[$k]=$v;
-//             }
-//             $this->addRecord($obj,$fields);
-//         }
-//     }
+    public function ensureRecord($obj,$pkey,$fields,$fieldsWithValOnUpdate);
+
 }
 
