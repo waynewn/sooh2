@@ -6,17 +6,27 @@ namespace Sooh2\Crond;
  * b) 其他的有依赖关系的任务要放在同一目录下（不能取名standalone）
  * c) 加载任务只扫描第一层目录，可以为任务建立更深的子目录
  * 
- * 问题：
- * 1）Test02里面，0分启动，每10分钟执行一次的，实际情况 00:01,11;00，21:00这种
- * 2）requirement 没有正常工作
  * @author Simon Wang <hillstill_simon@163.com>
  */
 class Ctrl {
     /**
      * 手动调用还是定时任务自动调用的
+     * @deprecated 改用 ::getInstance()
      * @return \Sooh2\Crond\Ctrl
      */
-    public static function factory($runManually=false){ $o = new Ctrl; $o->_isManual=$runManually; return $o; }
+    public static function factory($runManually=false){ return self::getInstance($runManually); }
+    protected static $_instance=null;
+    /**
+     * 手动调用还是定时任务自动调用的
+     * @return \Sooh2\Crond\Ctrl
+     */
+    public static function getInstance($runManually=false){
+        if(self::$_instance==null){
+            self::$_instance = new Ctrl;
+            self::$_instance->_isManual = $runManually;
+        }
+        return self::$_instance;
+    }
     protected $_isManual=false;
     /**
      * 设置定时任务扫描目录
@@ -54,11 +64,15 @@ class Ctrl {
      * @var \Sooh2\Crond\Time 
      */
     protected $_dt;
+    /**
+     * 定时任务执行顺序
+     * @var type 
+     */
     protected $_planToRun=array();
     /**
      * 执行函数
      * @param string $task 从request中获取的task的值
-     * @param int $ymdh  从request中获取的ymdh的值
+     * @param int $ymdh  从request中获取的ymdh的值,表明是本次调用是作为什么时间运行的
      * @throws \ErrorException
      */
     public function runManually($task=null, $ymdh=null)
@@ -68,6 +82,7 @@ class Ctrl {
         $this->_isManual=true;
         $this->_dt = \Sooh2\Crond\Time::getInstance();
         if($ymdh!==null){
+            if(is_numeric($ymdh)){
                 if($ymdh>99991231){//yyyymmddhh
                         $this->_dt->mktime($ymdh%100, 0, 0, floor($ymdh/100));
                 }elseif($ymdh<19000101){
@@ -75,8 +90,15 @@ class Ctrl {
                 }else{//yyyymmdd
                         $this->_dt->mktime(0, 0, 0, $ymdh);
                 }
+            }else{
+                $tmp = strtotime($ymdh);
+                if($tmp===false){
+                    throw new \ErrorException('ymdh specified error:'.$ymdh);
+                }else{
+                    $this->_dt->mktime(date('H',$tmp), date('i',$tmp), 0, date('Ymd',$tmp));
+                }
+            }
         }
-
 
         if(empty($task)){
                 throw new \ErrorException('you need specify a task');
@@ -95,8 +117,6 @@ class Ctrl {
             $this->newTaskObj($dir[0],$dir[1],$this->_baseDir.'/'.  implode('/', $dir).'.php');
         }
         $this->loop($this->_dt);
-
-        //$this->_log->writeCrondLog(null, __FUNCTION__." done");
     }
     /**
      * 
@@ -157,40 +177,39 @@ class Ctrl {
     {
         $task0=array();
         if($dir=='Standalone'){
-                for($i=0;$i<6;$i++){
-                        $tasks = $this->getTasks($dir);
-                        $this->_log->writeCrondLog(null, __FUNCTION__." scan Standalone,".sizeof($tasks).' tasks found');
-                        foreach($tasks as $task=>$fullpath){
-                                if(!in_array($task, $task0)){
-                                        $task0[]=$task;
-                                        $this->forkTaskProcess('Standalone.'.$task);
-                                }
-                        }
-                        if($i<5){
-                                sleep(600);
-                                clearstatcache();
+            for($i=0;$i<6;$i++){
+                $tasks = $this->getTasks($dir);
+                $this->_log->writeCrondLog(null, __FUNCTION__." scan Standalone,".sizeof($tasks).' tasks found');
+                foreach($tasks as $task=>$fullpath){
+                        if(!in_array($task, $task0)){
+                                $task0[]=$task;
+                                $this->forkTaskProcess('Standalone.'.$task);
                         }
                 }
+                if($i<5){
+                        sleep(600);
+                        clearstatcache();
+                }
+            }
         }else{
-                for($i=0;$i<60;$i++){
-                        if($i%10==0){
-                                $tasks = $this->getTasks($dir);
-                                $this->_log->writeCrondLog(null, __FUNCTION__." scan $dir,".sizeof($tasks).' tasks found');
-                                foreach($tasks as $task=>$fullpath){
-                                        if(!in_array($task, $task0)){
-                                                $task0[]=$task;
-                                                $this->newTaskObj($dir,$task,$fullpath);
-
-                                        }
-                                }
-                                clearstatcache();
+            for($i=0;$i<60;$i++){
+                if($i%10==0){
+                    $tasks = $this->getTasks($dir);
+                    $this->_log->writeCrondLog(null, __FUNCTION__." scan $dir,".sizeof($tasks).' tasks found');
+                    foreach($tasks as $task=>$fullpath){
+                        if(!in_array($task, $task0)){
+                            $task0[]=$task;
+                            $this->newTaskObj($dir,$task,$fullpath);
                         }
-                        $ret = $this->loop($this->_dt);
-                        if($i>50&&$ret==false){
-                            break;
-                        }
-                        $this->_dt->sleepTo($this->_dt->hour, $this->_dt->minute+1,0);
+                    }
+                    clearstatcache();
                 }
+                $ret = $this->loop($this->_dt);
+                if($i>50&&$ret==false){
+                    break;
+                }
+                $this->_dt->sleepTo($this->_dt->hour, $this->_dt->minute+1,0);
+            }
         }
     }
     protected $_tasks=array();
@@ -201,57 +220,25 @@ class Ctrl {
      */
     protected function loop($dt,$_ignore_=null)
     {
-            //$this->_log->writeCrondLog(null,__FUNCTION__."(".date('Y-m-d H:i:s',$dt->timestamp()).")");
-            $waiting=  array_keys($this->_tasks );
-            $done=array();
-            $total=sizeof($waiting);
-            $retry=6;
-            while($retry>0){
-                    $retry--;
-                    $numBool=0;
-            //	$this->_log->writeCrondLog(null, "trace while($retry)");
-
-                    $exec=0;
-                    foreach ($waiting as $taskindex){
-                            $_ignore_ = $this->_tasks[$taskindex];
-                            //$this->_log->writeCrondLog($taskindex, "trace while($retry exec:$exec done:".sizeof($done)." bool:$numBool total:$total):check:$taskindex");
-                            if(isset($done[$taskindex]))continue;
-                            elseif(is_bool($_ignore_)){$done[$taskindex]=$_ignore_;$numBool++;}
-                            else{
-                                    $req = $_ignore_->requirement();
-                                    if(empty($req) || $done[$req]){
-                                            //$this->_log->writeCrondLog($taskindex, "trace while($retry exec:$exec done:".sizeof($done)." bool:$numBool total:$total):run:$taskindex");
-                                            try{
-                                                    $exec++;
-                                                    $ret = $_ignore_->run($dt);
-                                                    //$this->_log->writeCrondLog($taskindex, "trace while($retry exec:$exec done:".sizeof($done)." bool:$numBool total:$total):ret:$taskindex=".  var_export($ret,true).' lastMsg='.$_ignore_->lastMsg. ' '. ($_ignore_->toBeContinue?'continue':'done'));
-                                            } catch (\ErrorException $e) {
-                                                    $ret = $_ignore_->onError($e);
-                                                    $this->_log->writeCrondLog($taskindex, "trace while($retry exec:$exec done:".sizeof($done)." bool:$numBool total:$total):error found(".$e->getMessage().") :$taskindex=".  var_export($ret,true).' lastMsg='.$_ignore_->lastMsg. ' '. ($_ignore_->toBeContinue?'continue':'done'));
-                                            }
-                                            if($ret!==false || $_ignore_->lastMsg!==null){
-                                                    $this->_log->updCrondStatus($dt->YmdFull, $dt->hour, $_ignore_->subdir.'.'.$taskindex, $_ignore_->lastMsg, $ret?1:0, $this->_isManual?1:0);
-                                            }
-                                            if($ret)$_ignore_->counterOk++;
-                                            $done[$taskindex]=$ret;
-                                            if($_ignore_->toBeContinue==false){
-                                                    $_ignore_->free ();
-                                                    $this->_tasks[$taskindex]=$_ignore_->counterOk>0;
-                                            }
-                                    }else {
-                                            //$this->_log->writeCrondLog($taskindex, "trace while($retry exec:$exec done:".sizeof($done)." bool:$numBool total:$total):wait next retry for $req:$taskindex");
-                                    }
-                            }
-                    }
-                    if($exec==0){
-
-                            if($numBool==$total)return false;
-//				if(sizeof($done)!==$total)
-//					$this->_log->writeCrondLog(null, "task require mismatch exec:$exec done:".sizeof($done)." for:".implode(',', $waiting));
-                            break;
-                    }
+        foreach($this->_planToRun as $i=>$taskname){
+            $_ignore_ = $this->_tasks[$taskname];
+            try{
+                $ret = $_ignore_->run($dt);
+                //$this->_log->writeCrondLog($taskindex, "trace while($retry exec:$exec done:".sizeof($done)." bool:$numBool total:$total):ret:$taskindex=".  var_export($ret,true).' lastMsg='.$_ignore_->lastMsg. ' '. ($_ignore_->toBeContinue?'continue':'done'));
+            } catch (\ErrorException $e) {
+                $ret = $_ignore_->onError($e);
+                $this->_log->writeCrondError($taskname, "error found(".$e->getMessage().") :ret=".  var_export($ret,true).' lastMsg='.$_ignore_->lastMsg. ' '. ($_ignore_->toBeContinue?'continue':'done'));
             }
-            return true;
+            if($ret!==false || $_ignore_->lastMsg!==null){
+                    $this->_log->updCrondStatus($dt->YmdFull, $dt->hour, $_ignore_->subdir.'.'.$taskname, $_ignore_->lastMsg, $ret?1:0, $this->_isManual?1:0);
+            }
+
+            if($_ignore_->toBeContinue==false){
+                $_ignore_->free ();
+                unset($this->_tasks[$taskname],$this->_planToRun[$i]);
+            }
+        }
+        return true;
     }
     protected function forkTaskProcess($task)
     {
@@ -282,11 +269,30 @@ class Ctrl {
                 $_ignore_->subdir=$subdir;
                 $this->_log->writeCrondLog(null,__FUNCTION__."new $realclass() created");
                 $this->_tasks[$taskname]=$_ignore_;
+                $tmp = $_ignore_->execOrder();
+                if($tmp<=0){
+                    if(sizeof($this->_planToRun)>0){
+                        $tmp = min($this->_planToRun)-1;
+                    }
+
+                    if(empty($tmp) || $tmp>=0){
+                        $tmp=-1;
+                    }
+
+                    $this->_planToRun[$tmp] = $taskname;
+                }else{
+                    if(isset($this->_planToRun[$tmp])){
+                        $this->_log->writeCrondLog(null,__FUNCTION__.' in '.$subdir.' found same exec-order:'.$taskname);
+                    }else{
+                        $this->_planToRun[$tmp] = $taskname;
+                    }
+                }
                 $this->_log->updCrondStatus($this->_dt->YmdFull, $this->_dt->hour, $subdir.'.'.$taskname, 'inited',0, $this->_isManual?1:0);
             }else{
-                $this->_log->writeCrondLog(null,__FUNCTION__." $realclass not found, error classname or pathname or namespace");
+                $this->_log->writeCrondError(null,__FUNCTION__." $realclass not found, error classname or pathname or namespace");
             }
         }
+        ksort($this->_planToRun);
     }
     protected function getTaskDirs()
     {

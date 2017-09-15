@@ -6,7 +6,16 @@ namespace Sooh2\Crond;
  * @author Simon Wang <hillstill_simon@163.com>
  */
 class CrondLog extends \Sooh2\DB\KVObj{
-
+    /**
+     * 
+     * @return \Sooh2\Crond\CrondLog
+     */
+    public function disableTraceLog()
+    {
+        $this->_flgTrace=false;
+        return $this;
+    }
+    protected $_flgTrace=true;
     /**
      * 详细执行日志（追踪日志，写txt）
      * @param type $taskid
@@ -14,8 +23,19 @@ class CrondLog extends \Sooh2\DB\KVObj{
      */
     public function writeCrondLog($taskid,$msg)
     {
+        if($this->_flgTrace){
             error_log("\tCroNd ".  getmypid()."#\t$taskid\t$msg");
+        }
     }
+    /**
+     * 详细执行日志（追踪日志，写txt）
+     * @param type $taskid
+     * @param type $msg
+     */
+    public function writeCrondError($taskid,$msg)
+    {
+            error_log("\tCroNd ".  getmypid()."#\t$taskid\t$msg");
+    }    
     /**
      * 更新任务执行状态
      * @param int $ymd yyyymmdd

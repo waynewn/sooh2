@@ -12,8 +12,8 @@
 - redis 可以直接存取
 - mysql 保存时会转换成json，读出时候不会自动还原
 
-DB 不依赖 Sooh2\Misc\Ini
-KVObj 依赖 Sooh2\Misc\Ini
+DB 不依赖 Sooh2\\Misc\\Ini
+KVObj 依赖 Sooh2\\Misc\\Ini
 
 KVObj 配置文件查找顺序  KVObj.classname => KVObj.default => 默认值 [1,'defaulr']
 KVObj 的 dbWithTablename 要在用之前现获取（当链接到同一个服务器时，底层的db是同一个实例，所以后面一个获取到的会覆盖前一个的table）

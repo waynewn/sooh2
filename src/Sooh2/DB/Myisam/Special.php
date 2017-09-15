@@ -31,18 +31,14 @@ class Special extends Cmd{
     }
     public function addLog($obj,$fields)
     {
-        if(!$this->connection->connected){
-            $this->connect();
-        }
-        $this->_lastCmd = 'INSERT into '
+        $this->connection->getConnection();
+        $this->_lastCmd = 'INSERT DELAYED into '
             .$this->fmtObj($obj, $this->connection->dbName)
             .' set '.$this->buildFieldsForUpdate($fields,null);
-
         $this->exec(array($this->_lastCmd));
         $this->skipErrorLog(null);
         $insertId = mysqli_insert_id($this->connection->connected);
-        
-        return $insertId>0?$insertId:true;
+        return true;
     }
     
     public function resetAutoIncrement($obj,$newStartVal=1)

@@ -6,7 +6,7 @@ namespace Sooh2\Messager;
  * 2）调用方式：\Prj\EvtMsg\Sender::getInstance()->sendEvtMsg('BindOk', 'userId001', array('{bonus}'=>'xxxx元红包'));
  * @author simon.wang
  */
-abstract class Broker {
+class Broker {
     protected static $_instance=null;
     /**
      * @return static
@@ -39,7 +39,12 @@ abstract class Broker {
      * @param string $id
      * @return \Sooh2\Messager\Sender
      */
-    abstract protected function getSenderCtrl($id);
+    protected function getSenderCtrl($id)
+    {
+        $conf = \Sooh2\Misc\Ini::getInstance()->getIni('Messager.'.$id);
+        $class = $conf['class'];
+        return $class::getInstance($conf['ini']);
+    }
 
     /**
      * 获取用户对应发送渠道所需的字段（比如调用时用的uid，需要的是手机号）
