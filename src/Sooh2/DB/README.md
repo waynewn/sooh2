@@ -1,3 +1,104 @@
+# 数据库
+
+## 1.设计目标
+
+1. 提供基本用法，这些基本用法可以忽略掉数据库差异（即同时适用于mysql，mongo，redis等）
+2. 提供专属类，可以方便执行数据库专属的一些功能（比如 mysql的 的delay insert，redis的que操作）
+3. 针对nosql（Key-Val），提供一套封装 [KVObj](KVObj.md)，支持分表分库分服务器，同样忽略数据库类型
+4. 额外提供一些基于数据库的功能类
+
+- [简单的账户余额流水管理类](Cases/AccountLog.md)
+- [交易订单对账系统](Cases/OrdersChk/OrderChk.md)
+
+注意：
+
+1. xxxx
+2. xxxxxx
+
+## 2.使用方式
+
+xxxxxxxxxxxxxx
+
+### 2.1 where 的构建方法
+
+        \Sooh2\Messager\Email\SmtpSSL::getInstance('user=yunwei@xyz.com&pass=123456&server=smtp.exmail.qq.com')
+        ->sendTo('wangning@zhangyuelicai.com', 'tet测试123423', 'tet测试')
+
+### 2.2 基本用法
+
+        Broker或Broker子类::getInstance()
+        ->sendEvtMsg('register', $uid_or_uidArray, ['{replaceFrom}' => $replaceTo]);
+
+### 2.3 专属类
+
+** A)Messager.Ini 定义了系统支持的通道和配置参数： ** 
+
+(Broker类通过getSenderCtrl()方法获取通道类，配置文件的格式是通过Misc\\Ini读取的，根据需要替换)
+
+		[msg]
+		name = '站内信'
+		class = "\\Prj\\InnerMsg"
+		ini = "xxxxxx"
+
+		[email]
+		name = '邮件'
+		class = "\\Sooh2\\Messager\\Email\\SmtpSSL"
+		ini = "user=xxx&pass=xxxx&server=smtp.exmail.qq.com"
+
+** B）准备消息模板 **
+
+数据库里记录了模板id（可以兼事件标识，消息标题模板，消息内容模板，需要往哪些通道发送）
+
+### 2.4 KVObj
+
+设置了数据库链接配置和KVObj配置后
+
+        $obj = /xxx/user::getCopy($uid);
+        $obj->load();
+        if($obj->exist()){
+            echo '用户昵称：'.$obj->getField('nickname');
+            try{
+                $obj->setField('lastActive',time());
+            }catch(\ErrorException $e){
+                \Sooh2\Misc\Loger::getInstnace()->app_warning('err:'.$e->getMessage())
+            }
+        }else{
+            echo '用户不存在';
+        }
+
+参看: [KVObj详细配置和用法](KVObj.md)
+
+## 3 补充说明
+
+### 3.1 依赖 
+
+- \Sooh2\Misc\Loger 会tracelog所有执行的命令语句
+- \Sooh2\Misc\Ini （KVObj使用其获取配置）
+
+### 3.2 重点系统类&常量 
+
+| 类名              | 说明
+| ----------------  | ---------------------------------------------------------
+| Myisam            | 基于mysqli的，支持myisam和innodb的封装，专属类提供了insert delay 和 reset autoinc
+| Redis             | 基于redis的，专属类提供了基本键值处理和过期时间设置
+| Mongodb           | mongodb (开发中)
+
+### 3.3 重点函数说明 
+
+基本用法主要有：
+addRecord
+delRecord
+getOne
+getPair
+getRecord
+getRecords
+getRecordCount
+
+### 3.4 默认提供的类需要的相关配置 sql
+
+    无
+
+
 
 ## 其它（场景,注意事项）
 
