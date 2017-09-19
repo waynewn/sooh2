@@ -163,12 +163,11 @@ class Orders extends \Sooh2\DB\KVObj{
     {
         //检查订单
         $where0 = array(self::field_batchYmd=>$this->batchYmd,self::field_uid=>$uid,self::field_err=>self::err_default);
-        $failed = array(OrderStatus::failed, OrderStatus::refused, OrderStatus::prepare);
+        $failed = array(OrderStatus::failed, OrderStatus::refused, OrderStatus::prepare,OrderStatus::unknown);
         //处理掉允许缺失的情况
         $dbOfOrders->updRecords($tb, array(self::field_err=>self::err_none), 
-                                    array_merge($where0,array(self::field_orderStatus.'1'=> OrderStatus::unknown,self::field_orderStatus."2"=>$failed)));
-        $dbOfOrders->updRecords($tb, array(self::field_err=>self::err_none), 
-                                    array_merge($where0,array(self::field_orderStatus.'1'=>$failed,self::field_orderStatus."2"=>OrderStatus::unknown)));
+                                    array_merge($where0,array(self::field_orderStatus.'1'=> $failed,self::field_orderStatus."2"=>$failed)));
+
         //订单状态不一致
         $dbOfOrders->updRecords($tb, array(self::field_err=>'订单状态不匹配'), 
                                     array_merge($where0,array(self::field_orderStatus.'1<>'.self::field_orderStatus."2")));

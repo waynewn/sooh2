@@ -162,5 +162,10 @@ class UserOrdersRet {
         } catch (\ErrorException $ex) {
             \Sooh2\Misc\Loger::getInstance()->app_warning('对账时记录用户'.$this->_uid.'失败（'.$ex->getMessage().'）'.json_encode( $accMirror->dump()  ));
         }
+        $this->freeAccMirror($accMirror);
+    }
+    protected function freeAccMirror($obj)
+    {
+        
     }
 }

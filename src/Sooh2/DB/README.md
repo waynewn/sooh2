@@ -17,8 +17,6 @@
 
 ## 2.使用方式
 
-xxxxxxxxxxxxxx
-
 ### 2.1 where 的构建方法
 
         \Sooh2\Messager\Email\SmtpSSL::getInstance('user=yunwei@xyz.com&pass=123456&server=smtp.exmail.qq.com')
@@ -66,6 +64,9 @@ xxxxxxxxxxxxxx
             echo '用户不存在';
         }
 
+注意： KVObj的更新操作是通过 set rowVersion=10 where xxx and rowVersion=9 这种方式排他锁的，为了实现这个效果，像redis，mongo是做了好几步操作来实现的，
+对于高并发特定场景，使用专属代码效率更高
+
 参看: [KVObj详细配置和用法](KVObj.md)
 
 ## 3 补充说明
@@ -81,7 +82,9 @@ xxxxxxxxxxxxxx
 | ----------------  | ---------------------------------------------------------
 | Myisam            | 基于mysqli的，支持myisam和innodb的封装，专属类提供了insert delay 和 reset autoinc
 | Redis             | 基于redis的，专属类提供了基本键值处理和过期时间设置
-| Mongodb           | mongodb (开发中)
+| Mongodb           | mongodbx (开发中)
+
+作者项目都是以mysql为主，辅以redis、mongo解决一些单一问题，估，redis、mongo接口实现上可能有不足之处，如发现问题，欢迎联系作者。
 
 ### 3.3 重点函数说明 
 

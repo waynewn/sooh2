@@ -44,7 +44,7 @@ class Conn extends \Sooh2\DB\Interfaces\Conn {
     {
         try{
             if(!$this->connected){
-                $this->connect();
+                $this->getConnHandle();
             }
             $this->connected->select($dbName);
             $this->dbNamePre = $this->dbName;

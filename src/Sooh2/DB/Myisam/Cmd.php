@@ -13,6 +13,7 @@ class Cmd
         
         if(!$this->connection->connected){
             try{
+                $skipback = $this->skip;
                 $h = $this->connection->getConnHandle();
                 if(!$h){
                     throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, mysqli_connect_errno().":".mysqli_connect_error(), "");
@@ -21,6 +22,7 @@ class Cmd
                 if(!empty($this->connection->charset)){
                     $this->exec(array('set names '.$this->connection->charset));
                 }
+                $this->skip=$skipback;
             }catch (\ErrorException $e){
                 throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, $e->getMessage()." when try connect to {$this->connection->server} by {$this->connection->user}", "");
             }
@@ -71,9 +73,11 @@ class Cmd
             }            
             if(!isset($this->skip[$err])){
                 \Sooh2\Misc\Loger::getInstance()->sys_warning("[".$ex->getCode()."]".$ex->getMessage()."\n". $this->_lastCmd." by ".$this->connection->guid."\n".$ex->getTraceAsString());
+                $this->skip=array();
+                throw $ex;
+            }else{
+                $this->skip=array();
             }
-            $this->skip=array();
-            throw $ex;
         }        
     }
 
@@ -273,7 +277,7 @@ class Cmd
                         }
                         $ret[] = $field.'  in ('.implode(',', $r).')';
                     }else{
-                        $ret[] = $field.'<>'.$this->safeStr($v);
+                        $ret[] = $field.'='.$this->safeStr($v);
                     }
                 default:
                     if(is_null($v)){

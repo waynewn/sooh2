@@ -7,33 +7,35 @@ class Conn extends \Sooh2\DB\Interfaces\Conn {
      * @return \Sooh2\DB\Interfaces\Conn
      * @throws \Sooh2\DB\DBErr
      */
-    public function getConnection()
+    public function getConnHandle()
     {
         if($this->connected){
             return $this->connected;
         }
-        if(!$this->connection->connected){
+        if(!$this->connected){
             try{
-                \Sooh2\Misc\Loger::getInstance()->sys_trace("TRACE: Redis connecting");
-                $this->connection->connected=new \Redis();
-                
-                $this->connection->connected->connect($this->connection->server, $this->connection->port);
-                $this->connection->connected->auth($this->connection->pass);
-
-                if(!$this->connection->connected){
-                    throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, "connect to redis-server {$this->connection->server}:{$this->connection->port} failed", "");
+                \Sooh2\Misc\Loger::getInstance()->sys_trace("TRACE: Mongo connecting");
+                if(!empty($this->user)){
+                    $str = "{$this->user}:{$this->pass}@";
+                }else{
+                    $str = '';
                 }
-                $this->connection->dbName = $this->connection->dbNameDefault - 0;
-                if($this->connection->dbName){
-                    $this->connection->connected->select($this->connection->dbName);
+                $this->connected=new \MongoDB\Driver\Manager("mongodb://{$str}{$this->server}:{$this->port}");
+
+                if(!$this->connected){
+                    throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, "connect to mongo-server {$this->server}:{$this->port} failed", "");
+                }
+                $this->dbName = null;
+                if($this->dbName){
+                    $this->connected->selectDB($this->dbName);
                 }
             }catch (\Exception $e){
-                throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, $e->getMessage()." when try connect to {$this->connection->server} by {$this->connection->user}", "");
+                throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, $e->getMessage()." when try connect to {$this->server} by {$this->user}", "");
             }
         }
 
     }
-    public function disConnect()
+    public function freeConnHandle()
     {
         if($this->connected){
             $this->connected->close();
@@ -44,10 +46,10 @@ class Conn extends \Sooh2\DB\Interfaces\Conn {
     {
         $this->dbNamePre = $this->dbName;
         try{
-            if(!$this->connection->connected){
-                $this->connect();
+            if(!$this->connected){
+                $this->getConnHandle();
             }
-            $this->exec(array(array('select',$dbName)));
+            $this->selectDB($dbName);
             $this->dbName = $dbName;
         }catch (\ErrorException $e){
             throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::dbNotExists, $e->getMessage(), "");
