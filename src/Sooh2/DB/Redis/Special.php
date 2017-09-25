@@ -15,8 +15,8 @@ class Special extends Cmd{
     public static function getInstance($arrConnIni)
     {
         $conn = \Sooh2\DB::getConn($arrConnIni);
-        $guid = 'mysql@'.$conn->guid;
-        if(isset(\Sooh2\DB::$pool[$guid])){
+        $guid = 'redis@'.$conn->guid;
+        if(!isset(\Sooh2\DB::$pool[$guid])){
             \Sooh2\DB::$pool[$guid] = new Special();
             \Sooh2\DB::$pool[$guid]->connection = $conn;
         }

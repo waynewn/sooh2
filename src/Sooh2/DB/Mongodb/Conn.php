@@ -15,7 +15,7 @@ class Conn extends \Sooh2\DB\Interfaces\Conn {
         if(!$this->connected){
             try{
                 \Sooh2\Misc\Loger::getInstance()->sys_trace("TRACE: Mongo connecting");
-                if(!empty($this->user)){
+                if($this->user!='ignore'&& $this->pass!='ignore'){
                     $str = "{$this->user}:{$this->pass}@";
                 }else{
                     $str = '';
@@ -25,9 +25,8 @@ class Conn extends \Sooh2\DB\Interfaces\Conn {
                 if(!$this->connected){
                     throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, "connect to mongo-server {$this->server}:{$this->port} failed", "");
                 }
-                $this->dbName = null;
                 if($this->dbName){
-                    $this->connected->selectDB($this->dbName);
+                    $this->change2DB($this->dbName);
                 }
             }catch (\Exception $e){
                 throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::connectError, $e->getMessage()." when try connect to {$this->server} by {$this->user}", "");
@@ -38,7 +37,7 @@ class Conn extends \Sooh2\DB\Interfaces\Conn {
     public function freeConnHandle()
     {
         if($this->connected){
-            $this->connected->close();
+            //$this->connected->close();
             $this->connected=false;
         }
     }
@@ -49,7 +48,7 @@ class Conn extends \Sooh2\DB\Interfaces\Conn {
             if(!$this->connected){
                 $this->getConnHandle();
             }
-            $this->selectDB($dbName);
+            //$this->connected->selectDB($dbName);
             $this->dbName = $dbName;
         }catch (\ErrorException $e){
             throw new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::dbNotExists, $e->getMessage(), "");

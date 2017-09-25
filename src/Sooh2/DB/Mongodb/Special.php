@@ -1,28 +1,31 @@
 <?php
-
-/*
-
-db.tb_user_0.insert({"_id":"abasdfhi3rabasdfhi3rabasdfhi3r123456","nickname":"张三","rowVersion":1});
-WriteResult({ "nInserted" : 1 })
-WriteResult({
-    "nInserted" : 0,
-    "writeError" : {
-        "code" : 11000,
-        "errmsg" : "E11000 duplicate key error collection: test.tb_user_0 index: _id_ dup key: { : \"abasdfhi3rabasdfhi3rabasdfhi3r123456\" }"
-    }
-})
-
-
- */
-
 namespace Sooh2\DB\Mongodb;
 
 /**
- * Description of Special
+ * Special @ mongodb
  *
  * @author wangning
  */
-class Special {
-    public function findAndModify();
-    public function addIndex();
+class Special extends Broker{
+        /**
+     * 
+     * @param array $arrConnIni
+     * @return \Sooh2\DB\Mongodb\Special
+     */
+    public static function getInstance($arrConnIni)
+    {
+        $conn = \Sooh2\DB::getConn($arrConnIni);
+       
+        $guid = 'mongodb@'.$conn->guid;
+
+        if(!isset(\Sooh2\DB::$pool[$guid])){
+            \Sooh2\DB::$pool[$guid] = new Special();
+            \Sooh2\DB::$pool[$guid]->connection = $conn;
+        }
+        return \Sooh2\DB::$pool[$guid];
+    }
+    public function getConFromDB(){throw new \ErrorException('todo');}
+    public function findAndModify(){throw new \ErrorException('todo');}
+    public function addIndex(){throw new \ErrorException('todo');}
+    public function upsert(){throw new \ErrorException('todo');}
 }

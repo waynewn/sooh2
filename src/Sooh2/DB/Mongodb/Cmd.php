@@ -16,7 +16,7 @@ class Cmd
     {
         if(!$this->connection->connected){
             try{
-                \Sooh2\Misc\Loger::getInstance()->sys_trace("TRACE: Redis connecting");
+                \Sooh2\Misc\Loger::getInstance()->sys_trace("TRACE: Mongodb connecting");
                 $this->connection->getConnHandle();
                 $this->connection->change2DB($this->connection->dbNameDefault);
                 return $this->connection->connected;
@@ -47,31 +47,7 @@ class Cmd
      */
     public function buildWhere($define)
     {
-        if(is_array($define)){
-            $method = key($define);
-            if(sizeof($define)!=1){
-                 $method = '&';
-                 return json_encode($this->parse($define));
-            }else{
-                switch ($method[0]){
-                    case '&':
-                        return json_encode($this->parse(current($define)));
-                
-                    case '|':
-                        return json_encode($this->parse(current($define)));
-                
-                    default:
-                        return json_encode($this->parse($define));
-                }
-            }
-
-        }elseif(is_scalar($define)){
-            if($define===''){
-                return null;
-            }else{
-                return $define;
-            }
-        }
+        return $this->buildIdFilter($define);
     }
     protected function parse($r)
     {
@@ -142,47 +118,88 @@ class Cmd
     protected $_lastCmd;
     public function exec($cmds)
     {
-        if(!$this->connection->connected){
-            $this->connect();
-        }
-        $r = $this->_exec($cmds);
-        $lastRecordSet=null;
-        foreach($cmds as $cmd){
-            $f = array_shift($cmd);
-            //dbname.tbname.insert({"_id":"abasdfhi3rabasdfhi3rabasdfhi3r123456","nickname":"张三","rowVersion":1});
-            throw new \ErrorException('exec not support yet(mongodb)');
-            $this->_lastCmd = $f.'('.json_encode($cmd).')';
-            \Sooh2\Misc\Loger::getInstance()->lib_trace('TRACE: try '.$this->_lastCmd);
-            if($f==self::do_query){
-                $lastRecordSet = call_user_func_array(array($this->connection->connected,$f), $cmd);
-            }else{
-                $lastRecordSet = call_user_func_array(array($this->connection->connected,$f), $cmd);
-            }
-        }
-        return $r;
+//        if(!$this->connection->connected){
+//            $this->connect();
+//        }
+//        $r = $this->_exec($cmds);
+//        $lastRecordSet=null;
+//        foreach($cmds as $cmd){
+//            $f = array_shift($cmd);
+//            //dbname.tbname.insert({"_id":"abasdfhi3rabasdfhi3rabasdfhi3r123456","nickname":"张三","rowVersion":1});
+//            throw new \ErrorException('exec not support yet(mongodb)');
+//            $this->_lastCmd = $f.'('.json_encode($cmd).')';
+//            \Sooh2\Misc\Loger::getInstance()->lib_trace('TRACE: try '.$this->_lastCmd);
+//            if($f==self::do_query){
+//                $lastRecordSet = call_user_func_array(array($this->connection->connected,$f), $cmd);
+//            }else{
+//                $lastRecordSet = call_user_func_array(array($this->connection->connected,$f), $cmd);
+//            }
+//        }
+//        return $r;
     }
-    
-    protected function exec_read($db,$tb,$act='find',$where=null,$sort=null)
+    protected function buildRowVersionWhere($where)
     {
         if(empty($where)){
-            $filter = null;
-        }else{
-            $filter = $this->buildWhere($where);
+            return null;
         }
-        $options = [
-            'projection' => ['_id' => 0],
-            'sort' => ['x' => -1],
-        ];
-
-        // 查询数据
-        $query = new \MongoDB\Driver\Query($filter, $options);
-        $cursor = $this->connection->connected->executeQuery("$db.$tb", $query);
-        
+        $rowVersion = \Sooh2\DB::version_field();
+        if(isset($where[$rowVersion])){
+            return array($rowVersion=>$where[$rowVersion]);
+        }else{
+            return null;
+        }
     }
-    protected function exec_write($db,$tb,$act,$more)
+    protected function buildIdFilter($where)
     {
+        if(!is_array($where)){
+            if(empty($where)){
+                return array();
+            }else{
+                throw new \ErrorException('where should be array '. gettype($where).' given');
+            }
+        }
+        $rowVersion = \Sooh2\DB::version_field();
+        unset($where[$rowVersion]);
         
+        if(sizeof($where)==1){
+            $ret = array('_id'=>current($where));
+            if(is_array($ret['_id'])){
+                foreach($ret['_id'] as $k=>$v){
+                    $ret['_id'][$k]=$v.'';
+                }
+                $ret = array('_id'=>array('$in'=>$ret['_id']));
+            }else{
+                $ret['_id'].='';
+            }
+            return $ret;
+        }else{
+            $_tpl = '';
+            $rp = null;
+            foreach($where as $k=>$v){
+                if(is_array($v)){
+                    if($rp===null){
+                        $rp = $v;
+                        $_tpl.=":$k:{SoOh2RepLAce}";
+                    }else{
+                        throw new \ErrorException('only one array support in pkey');
+                    }
+                }else{
+                    $_tpl.=":$k:$v";
+                }
+            }
+            $_tpl = substr($_tpl,1);
+            if(empty($rp)){
+                return array('_id'=>$_tpl);
+            }else{
+                $rs = array();
+                foreach($rp as $v){
+                    $rs[]= str_replace('{SoOh2RepLAce}', $v, $_tpl);
+                }
+            }
+            return array('_id'=>array('$in'=>$rs));
+        }
     }
+
 
     /**
      * 

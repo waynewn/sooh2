@@ -78,7 +78,7 @@ class UserOrdersRet {
         $rs = $dbOfOrders->getRecords($tb,array(Orders::field_orderId,Orders::field_orderDesc,Orders::field_orderType,Orders::field_err),
                 array(Orders::field_batchYmd=>$batchYmd,Orders::field_uid=>$uid,'!'.Orders::field_err=>Orders::err_none,));//,'['.Orders::field_dt=>$this->dtBatchTo
         foreach($rs as $r){
-            $this->markErrorOrders($r[Orders::field_orderId], $r[Orders::field_orderDesc], $r['orderType']);
+            $this->markErrorOrders($r[Orders::field_orderId], $r[Orders::field_err], $r[Orders::field_orderDesc]);
         }
 
         //计算金额变化

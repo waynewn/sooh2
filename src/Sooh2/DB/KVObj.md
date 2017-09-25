@@ -54,64 +54,97 @@
 
 默认也使用了KVObj的类记录日志，如果需要换成你自己的日志记录类，覆盖getLogerClassname()
 
-### 2.3补充
+### 3.1 依赖 
 
-** 2.3.1 三个发送函数说明 **
-- sendEvtMsg() 根据配置库（或其他）发送 指定 事件消息模板
-- sendRetry()  重试发送指定日志的指定通道（这里不支持幂等，使用时注意）
-- sendCustomMsg() 直接指定消息发送（不去查配置了，注意，这里还是需要通过用户id获取对应渠道需要的字段的） 
+- \Sooh2\Misc\Loger 会tracelog所有执行的命令语句
+- \Sooh2\Misc\Ini （KVObj使用其获取配置）
 
-** 2.3.2 依赖 **
-
-- \Sooh2\Misc\Loger
-- 默认的记录发送日志的类是基于\Sooh2\DB\KVObj的 （如果使用了默认的记录发送日志的类）
-- \Sooh2\Misc\Ini （如果使用了默认的发送通道识别方法）
-
-** 2.3.3 建议通道命名 **
-
-| 渠道标示          | 说明
-| ----------------  | ------------------------------------------------
-| msg               | 站内信
-| pushstd           | 标准推送（默认消息模式）
-| pushext           | 扩展推送（自定义事件模式）
-| smscode           | 短信通道（验证码专用通道)
-| smsnotic          | 短信通道（通知专用通道）
-| smsmarket         | 短信通道（营销专用通道）
-| email             | 邮件
-
-** 2.3.4 系统类 **
+### 3.2 重点系统类&常量 
 
 | 类名              | 说明
 | ----------------  | ---------------------------------------------------------
-| MsgTpl类          | 维护数据库中定义的事件消息模板（包括该事件消息需要向哪些渠道发送）
-| MsgSentLog类      | 维护消息发送记录，可以做后台重试指定记录的指定通道
-| Broker类          | 按事件发送消息的基本类
-| BrokerWithLog类   | 在Broker基础上增加记录消息发送记录的能力
-
-- 默认的MsgTpl类，MsgSentLog类是使用的KVObj，需要在KVObj定义的，可以替换成符合接口需求的其它类，然后派生Broker子类
-
-** 2.3.5 默认提供的类需要的相关配置 sql **
+| KVObj 类          | kv式的数据操作封装
+| KVObjRW 类        | 读写分离的封装
 
 
-        CREATE TABLE `tb_msgtpl_0` (
-          `msgid` varchar(36) NOT NULL DEFAULT '' COMMENT '标识',
-          `titletpl` varchar(100) NOT NULL DEFAULT '' COMMENT '标题模板',
-          `contenttpl` varchar(500) NOT NULL DEFAULT '' COMMENT '内容模板',
-          `ways` varchar(64) NOT NULL DEFAULT '' COMMENT '（通道：msg，email...）',
-          `rowVersion` int(11) NOT NULL DEFAULT '0',
-          PRIMARY KEY (`msgid`)
-        )COMMENT '消息模板';
+### 3.3 重点函数说明 
+
+基本用法主要有：
+addRecord   失败要么异常，要么返回false；成功：如果支持自增字段，返回自增结果，否则返回true
+updRecords  失败要么异常，要么返回false；成功：如果支持变动记录数，返回变更记录数量，否则返回true
+delRecord   失败要么异常，要么返回false；成功：如果支持变动记录数，返回变更记录数量，否则返回true
+getOne
+getPair
+getRecord
+getRecords
+getRecordCount
+
+### 3.4 默认提供的类需要的相关配置 sql
+
+    无
 
 
-        CREATE TABLE `tb_msgsentlog_0` (
-          `logid` bigint(20) NOT NULL,
-          `evtid` varchar(32) NOT NULL COMMENT '标识',
-          `ymdhis` bigint(20) NOT NULL COMMENT '时间比较另类的记录格式',
-          `msgtitle` varchar(200) NOT NULL COMMENT '实际发送的标题',
-          `msgcontent` varchar(2000) NOT NULL COMMENT '实际发送的内容',
-          `users` varchar(1000) NOT NULL COMMENT '发给哪些用户',
-          `ways` varchar(200) NOT NULL  COMMENT '发给哪些通道',
-          `sentret` varchar(2000) NOT NULL COMMENT '发送结果',
-          `rowVersion` int(11) NOT NULL DEFAULT '0',
-          PRIMARY KEY (`logid`)
-        )COMMENT '发送记录';
+
+## 其它（场景,注意事项）
+
+*记录版本号字段：*
+
+使用时通过自增（update verid加一  where verid=xxx），用于实现行级乐观锁。默认字段名rowVersion，可以通过 define(DBROW_VERFIELD,'重新指定')
+
+*数组数据值*
+
+不同数据库存取类型对数组的处理不太一样
+
+- redis 可以直接存取
+- mysql 保存时会转换成json，读出时候不会自动还原
+
+DB 不依赖 Sooh2\\Misc\\Ini
+KVObj 依赖 Sooh2\\Misc\\Ini
+
+KVObj 配置文件查找顺序  KVObj.classname => KVObj.default => 默认值 [1,'defaulr']
+KVObj 的 dbWithTablename 要在用之前现获取（当链接到同一个服务器时，底层的db是同一个实例，所以后面一个获取到的会覆盖前一个的table）
+KVObj 的getCopy（）容易改成 getCopy($uid) {return parent::getCopy(['uid'=>$uid]);},这样改，在继承层级多了以后，容易错，需要进一步改成{
+    if($uid===null){return parent::getCopy(null);}
+    elseif(is_array($uid)){return parent::getCopy($uid);}
+    else {return parent::getCopy(['uid'=>$uid]);}
+}
+
+updRecords 的结果
+数字是应对知道实际改变记录数量的情况
+true是不能获取改变记录数量的情况或改变记录数是0
+
+userId 目前取值10位（考虑到用户个人账户日志，减少索引负载，采用userid10+ymd6+inc3，首位保留，支持近200亿用户，每天100次操作，80年内仍然是有效递增，期间应该需要重构了）
+kvobj 可以没有lock字段提高一点性能，但一定要有rowVersion
+ini 初始化一定要放在最开始（在其他诸如loger之前）
+kvobj的classname默认是处理：转换成全小写，用于找conf和拼接出数据库表名称
+kvobj 保存时，键冲突或rowver错误，返回false，其它原因导致的错误抛异常
+kvobj 不支持自动递增字段
+kvobj 的锁是软锁，没有硬拦截（不写判定代码是可以对锁了的记录进行更新的），逻辑顺序是：load->chklock->[lock and update]->unlock->update
+### where 
+
+where的写法参考 [WHERE.md](WHERE.md "where编写说明")
+
+### mysql
+
+1. 获取自增值：->exec(array(['SELECT LAST_INSERT_ID()']));
+
+## 基本使用（等价写法）
+
+### getRecord(tbname, fields, where, sortgrpby)
+
+->getRecord("tb","*,field1",array('&'=>array('k1'=>2,'k2'=>22)), 'sort k1')
+
+数据库 | 效果 
+---- |  ---
+mysql| select *,field1 from tb where k1=2 and k2=22 order by k1 limit 1;
+redis| hGetAll (tb:k1:2:k2:22); (返回结果时会把键值k1,k2拆开放入返回的数组)
+
+### getOne(tbname, fields, where, sortgrpby)
+
+->getRecord("tb","field1",array('&'=>array('k1'=>2,'k2'=>22)), 'sort k1')
+
+数据库 | 效果 
+---- |  ---
+mysql| select field1 from tb where k1=2 and k2=22 order by k1 limit 1;
+redis| hGet (tb:k1:2:k2:22,field1);
+

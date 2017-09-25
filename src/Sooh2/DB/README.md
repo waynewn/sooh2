@@ -4,16 +4,22 @@
 
 1. 提供基本用法，这些基本用法可以忽略掉数据库差异（即同时适用于mysql，mongo，redis等）
 2. 提供专属类，可以方便执行数据库专属的一些功能（比如 mysql的 的delay insert，redis的que操作）
-3. 针对nosql（Key-Val），提供一套封装 [KVObj](KVObj.md)，支持分表分库分服务器，同样忽略数据库类型
-4. 额外提供一些基于数据库的功能类
+3. 针对nosql（Key-Val），提供一套封装，支持分表分库分服务器，同样忽略数据库类型，详情参看 [KVObj](KVObj.md)
+4. KVObj既然支持分服务器分库分表，在此基础上加一层，实现简单读写分离（包括cache模式的读写分离）
+5. 额外提供一些基于数据库的功能类
 
 - [简单的账户余额流水管理类](Cases/AccountLog.md)
 - [交易订单对账系统](Cases/OrdersChk/OrderChk.md)
 
 注意：
 
-1. xxxx
-2. xxxxxx
+作者项目都是以mysql为主，辅以redis、mongo解决一些单一问题，因此redis、mongo接口实现上可能有不足之处，如发现问题，欢迎联系作者。已知问题如下：
+
+1. kvobj 的更新没有使用事务悲观锁机制，靠 update tb set rowVersion=9 where rowVersion=8 来实现的乐观锁
+2. redis实现中，主键命名规则是：tablename:pkey1name:pkey1val:pkey2name:pkey2val....，相应的，where只能是pkey（为了支持kvobj,特殊处理支持rowVersion）
+3. mongodb 虽然一定程度支持了类sql查询，由于设计复杂性，加上采用mongo是为了nosql,而不是为了sql，因此设计实现上基本用法做了约束：where 是主键（为了支持kvobj,特殊处理支持rowVersion）；当只有一个字段的时候，主键的值直接作为_id，多个字段的时候，pkey1name:pkey1val:pkey2name 作为_id
+4. redis，mongo作为nosql，where虽然只有主键，但del和get支持其中一个是数组（比如一组用户id）
+5. db是跟connection走的，不是跟db封装类，所以尽量使用 database.table 的格式操作，避免程序转来转去操作错库的情况。
 
 ## 2.使用方式
 
@@ -81,16 +87,17 @@
 | 类名              | 说明
 | ----------------  | ---------------------------------------------------------
 | Myisam            | 基于mysqli的，支持myisam和innodb的封装，专属类提供了insert delay 和 reset autoinc
-| Redis             | 基于redis的，专属类提供了基本键值处理和过期时间设置
-| Mongodb           | mongodbx (开发中)
+| Redis             | 基于redis的，基础函数封装的是hmap操作，专属类提供了基本键值处理和过期时间设置, 连接配置中user=ignore
+| Mongodb           | mongodbx , 连接配置中，user=ignore & pass=ignore 应对无验证情况
 
-作者项目都是以mysql为主，辅以redis、mongo解决一些单一问题，估，redis、mongo接口实现上可能有不足之处，如发现问题，欢迎联系作者。
+
 
 ### 3.3 重点函数说明 
 
 基本用法主要有：
-addRecord
-delRecord
+addRecord   失败要么异常，要么返回false；成功：如果支持自增字段，返回自增结果，否则返回true
+updRecords  失败要么异常，要么返回false；成功：如果支持变动记录数，返回变更记录数量，否则返回true
+delRecord   失败要么异常，要么返回false；成功：如果支持变动记录数，返回变更记录数量，否则返回true
 getOne
 getPair
 getRecord

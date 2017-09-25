@@ -1,7 +1,10 @@
 <?php
 namespace Sooh2\DB\Mongodb;
 
-
+/**
+ * 
+ * @author simon.wang
+ */
 
 class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
 {
@@ -20,13 +23,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         }
         list($dbname,$tbname)=$this->fmtObj($obj);
         if(is_array($pkey)){
-            $document = $fields;
-            if(sizeof($pkey)==1){
-                $document['_id'] = current($pkey);
-            }else{
-                $document['_id'] = new \MongoDB\BSON\ObjectID;
-            }
-            
+            $document = array_merge($fields,$this->buildIdFilter($pkey));
             foreach($pkey as $k=>$v){
                 $document[$k]=$v;
             }
@@ -37,30 +34,91 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         $bulk = new \MongoDB\Driver\BulkWrite;
         try{
             $bulk->insert($document);
-            $writeConcern = new MongoDB\Driver\WriteConcern(MongoDB\Driver\WriteConcern::MAJORITY, 10000);//插入动作，这里加个超时吧
+            $writeConcern = new \MongoDB\Driver\WriteConcern(\MongoDB\Driver\WriteConcern::MAJORITY, 10000);//插入动作，这里加个超时吧
+            \Sooh2\Misc\Loger::getInstance()->sys_trace($this->_lastCmd);
             $result = $this->connection->connected->executeBulkWrite("$dbname.$tbname", $bulk, $writeConcern);
             $affectedRows = $result->getInsertedCount(); 
+            
             return $affectedRows>0?$affectedRows:true;
+        }catch(\MongoDB\Driver\Exception\BulkWriteException $ex){
+            if('E11000 duplicate key'==substr($ex->getMessage(),0,20)){
+                $ex2 = new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::duplicateKey, $ex->getMessage(), $this->_lastCmd);
+                $ex2->keyDuplicated = '_id';
+                throw $ex2;
+            }else{
+                throw $ex;
+            }
         }catch(\ErrorException $ex){
             \Sooh2\Misc\Loger::getInstance()->sys_warning("Error on mongo-insert:".$this->_lastCmd .":".$ex->getMessage());
             return false;
         }
+
+    }
+    protected function _updRecordOne($obj,$fields,$_id,$whereLeft=null)
+    {
+        $where = array('_id'=>$_id);
+        $rowVersion = \Sooh2\DB::version_field();
         
+        list($dbname,$tbname)=$this->fmtObj($obj);
+        
+        $objLock = $dbname.'.Sooh2lockkey_'.$tbname;
+        
+        try{//获取更新锁
+            $this->addRecord($objLock, array('createTime'=>date('Y-m-d H:i:s')),$where);
+        } catch (\Sooh2\DB\DBErr $ex) {
+            if($ex->keyDuplicated){
+                return 0;
+            }else{
+                throw $ex;
+            }
+        }
+        if(!empty($whereLeft[$rowVersion])){//检查rowVersion字段
+            $r = $this->getRecord($obj, '*', $where);
+            if(!is_array($r) || $r[$rowVersion]!=$whereLeft[$rowVersion]){
+                $this->delRecords($objLock,$where);
+                return 0;
+            }
+        }
+        //执行更新动作
+        $bulk = new \MongoDB\Driver\BulkWrite;
+        $bulk->update(
+            array('_id' => $_id),
+            array('$set'=>$fields),
+            array('multi' => false, 'upsert' => false)
+        );
+
+        $writeConcern = new \MongoDB\Driver\WriteConcern(\MongoDB\Driver\WriteConcern::MAJORITY, 1000);
+        $this->_lastCmd = "$dbname:db.$tbname.update({_id:\"". $_id.'",'. json_encode($fields).',{upsert:false,multi:false})';
+        \Sooh2\Misc\Loger::getInstance()->sys_trace($this->_lastCmd);
+        $ret = $this->connection->connected->executeBulkWrite("$dbname.$tbname", $bulk, $writeConcern);
+       
+        $this->delRecords($objLock,$where);
+        return $ret->getModifiedCount();
     }
     public function updRecords($obj,$fields,$where=null){
         if(!$this->connection->connected){
             $this->connect();
         }
-        $this->_lastCmd = 'update '
-            .$this->fmtObj($obj, $this->connection->dbName)
-            .' set '. $this->buildFieldsForUpdate($fields)
-            .$this->buildWhere($where);
-        
-        $rs0 = $this->exec(array($this->_lastCmd));
-        $this->skipErrorLog(null);
-        
-        $affectedRows = mysqli_affected_rows($this->connection->connected);
-        return $affectedRows>0?$affectedRows:true;
+
+        $filter = $this->buildIdFilter($where);
+        $whereLeft = $this->buildRowVersionWhere($where);
+        if(is_array($filter['_id']['$in'])){
+            $changed = 0;
+            foreach ($filter['_id']['$in'] as $_id){
+                $ret = $this->_updRecordOne($obj, $fields, $_id,$whereLeft);
+                if($ret===1){
+                    $changed++;
+                }
+            }
+            
+        }else{
+            $changed = $this->_updRecordOne($obj, $fields, $filter['_id'],$whereLeft);
+        }
+        if($changed===0){
+            return true;
+        }else{
+            return $changed;
+        }
     }
 
     public function delRecords($obj,$where=null){
@@ -68,16 +126,17 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             $this->connect();
         }
         list($dbname,$tbname)=$this->fmtObj($obj);
-        $filter = $this->buildWhere($where);
         try{
             $bulk = new \MongoDB\Driver\BulkWrite;
-            if(!empty($filter)){
-                $bulk->delete(array('x' => 2), array('limit' => 0));// limit 为 1 时，删除第一条匹配数据
+            if(!empty($where)){
+                $filter=$this->buildIdFilter($where);
             }else{
-                $bulk->delete(array(), array('limit' => 0));
+                $filter=array();
             }
-
-            $writeConcern = new MongoDB\Driver\WriteConcern(MongoDB\Driver\WriteConcern::MAJORITY, 0);//默认不设置ms-timeout
+            $bulk->delete($filter, array('limit' => 0));// limit 为 1 时，删除第一条匹配数据
+            $this->_lastCmd = "$dbname:db.$tbname.remove(". json_encode($filter).')';
+            \Sooh2\Misc\Loger::getInstance()->sys_trace($this->_lastCmd);
+            $writeConcern = new \MongoDB\Driver\WriteConcern(\MongoDB\Driver\WriteConcern::MAJORITY, 0);//默认不设置ms-timeout
             $result = $this->connection->connected->executeBulkWrite("$dbname.$tbname", $bulk, $writeConcern);
             $affectedRows = $result->getDeletedCount(); 
             return $affectedRows>0?$affectedRows:true;
@@ -88,14 +147,30 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         
     }
     public function getRecordCount($obj, $where=null){
-        throw new \ErrorException('todo(mongodb-recordcount)？？？？？？？？？？？？？？？？？？？？？？？？');
+        if(!$this->connection->connected){
+            $this->connect();
+        }
+        list($dbname,$tbname)=$this->fmtObj($obj);
+        $filter = $this->buildIdFilter($where);
+        $this->_lastCmd = "$dbname:db.$tbname.find(". json_encode($filter).').count()';
+
+        $options = [
+            'projection' => array('_id' => 1),
+        ];
+
+        //". json_encode($options);
+        // 查询数据
+        $query = new \MongoDB\Driver\Query($filter, $options);
+        $cursor = $this->connection->connected->executeQuery("$dbname.$tbname", $query);
+        return $cursor->count();
     }
     public function getRecords($obj, $fields, $where=null, $sortgrpby=null,$pageSize=null,$rsFrom=0){
         if(!$this->connection->connected){
             $this->connect();
         }
         list($dbname,$tbname)=$this->fmtObj($obj);
-        $filter = $this->buildWhere($where);
+        $filter = $this->buildIdFilter($where);
+
         $this->_lastCmd = "$dbname:db.$tbname.find(". json_encode($filter);
         $options = [
             'projection' => array('_id' => 0),
@@ -112,24 +187,25 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         }
         $this->_lastCmd .=")";
 
-        $arr = explode(' ',trim($sortgrpby));
-        $mx = sizeof($arr);
-        $orderby=array();
-        for($i=0;$i<$mx;$i+=2){
-            $k = $arr[$i];
-            $v = $arr[$i+1];
-            switch($k){
-                case 'rsort':
-                    $orderby[$v]= -1;
-                    break;
-                case 'sort':
-                    $orderby[$v]= 1;
-                    break;
-                default:
-                    throw new \ErrorException('invalid sortgroup given:'.$sortgrpby);
+        if(!empty($sortgrpby)){
+            $arr = explode(' ',trim($sortgrpby));
+            $mx = sizeof($arr);
+            $orderby=array();
+            for($i=0;$i<$mx;$i+=2){
+                $k = $arr[$i];
+                $v = $arr[$i+1];
+                switch($k){
+                    case 'rsort':
+                        $orderby[$v]= -1;
+                        break;
+                    case 'sort':
+                        $orderby[$v]= 1;
+                        break;
+                    default:
+                        throw new \ErrorException('invalid sortgroup given:'.$sortgrpby);
+                }
             }
         }
-        
         
         if(!empty($orderby)){
             $options['sort']=$orderby;
@@ -143,7 +219,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             $options['skip']=$rsFrom;
             $this->_lastCmd.=".skip(".$rsFrom.")";
         }
-
+        \Sooh2\Misc\Loger::getInstance()->sys_trace($this->_lastCmd);
         //". json_encode($options);
         // 查询数据
         $query = new \MongoDB\Driver\Query($filter, $options);
@@ -153,7 +229,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             $ret[]=json_decode( json_encode( $document),true);
         }
 
-        return $r;
+        return $ret;
     }
 
     public function getRecord($obj, $fields, $where=null, $sortgrpby=null)
@@ -182,7 +258,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
 
     public function getCol($obj, $field, $where=null, $sortgrpby=null,$pageSize=null,$rsFrom=0){
         $ret = array();
-        $rs = $this->getRecords($obj, $field, $where, $sortgrpby, 1, 0);
+        $rs = $this->getRecords($obj, $field, $where, $sortgrpby,$pageSize,$rsFrom);
         if(!empty($rs)){
             foreach($rs as $r){
                 $ret[]=$r[$field];
@@ -194,7 +270,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
     }
     public function getPair($obj, $fieldKey,$fieldVal, $where=null, $sortgrpby=null,$pageSize=null,$rsFrom=0){
         $ret = array();
-        $rs = $this->getRecords($obj, array($fieldKey,$fieldVal), $where, $sortgrpby, 1, 0);
+        $rs = $this->getRecords($obj, array($fieldKey,$fieldVal), $where, $sortgrpby,$pageSize,$rsFrom);
         if(!empty($rs)){
             foreach($rs as $r){
                 $ret[$r[$fieldKey]]=$r[$fieldVal];

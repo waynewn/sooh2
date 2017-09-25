@@ -1,9 +1,8 @@
 <?php
 namespace Sooh2\DB\Redis;
 /**
- * @todo 还没想明白支持多个库的自动切换逻辑，始终在一个库没问题
+ * 
  * @author simon.wang
- *
  */
 class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
 {
@@ -132,7 +131,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
 
             foreach($fullKey as $k){
                 
-                $chkkey = $this->exec( array( array('setnx', 'lockkey:'.$k, 'u'.date('Y-m-d H:i:s')) ) );
+                $chkkey = $this->exec( array( array('setnx', 'Sooh2lockkey:'.$k, 'u'.date('Y-m-d H:i:s')) ) );
                 if($chkkey){
                     $ver = $this->getOne($k, $verK);
                     if($ver==$verV){
@@ -141,7 +140,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
                             $numOk++;
                         }
                     }
-                    $this->exec( array( array('delete', 'lockkey:'.$k) ) );
+                    $this->exec( array( array('delete', 'Sooh2lockkey:'.$k) ) );
                 }else{
                     echo ">redis> lock failed: $k\n";
                 }
@@ -174,7 +173,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             throw new \ErrorException('only one key should be returned');
         }
 
-		$chkkey = $this->exec( array( array('setnx', 'lockkey:'.$fullKey, 'a'.date('Y-m-d H:i:s')) ) );
+		$chkkey = $this->exec( array( array('setnx', 'Sooh2lockkey:'.$fullKey, 'a'.date('Y-m-d H:i:s')) ) );
 		if($chkkey){
 			$exists = $this->exec( array( array('exists', $fullKey) ) );
 			if($exists){
@@ -184,7 +183,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
 				$this->exec( array( array('hmset', $fullKey, $fields) ) );
 				$cmdBak = $this->_lastCmd;
 			}
-			$this->exec( array( array('delete', 'lockkey:'.$fullKey) ) );
+			$this->exec( array( array('delete', 'Sooh2lockkey:'.$fullKey) ) );
 		}else{
 			$err= new \Sooh2\DB\DBErr(\Sooh2\DB\DBErr::duplicateKey,'someelse are create same record',$this->lastCmd());
 			$err->keyDuplicated = 'PRIMARY';
