@@ -25,18 +25,16 @@ class ForwardCtrl {
         $uri = $_SERVER['DOCUMENT_URI'];
         $loger = \Sooh2\Misc\Loger::getInstance();
         $rs = $this->ipWithPortlist();
-        $loger->app_trace("iurl[".$uri." ".json_encode($_GET)."]");
-        $loger->app_trace("iurl[".$uri." ".json_encode($_GET)."]");
-        $loger->app_trace("iurl[".$uri." ".json_encode($_GET)."]");
-        $loger->app_trace("iurl[".$uri." ".json_encode($_GET)."]");
-        $loger->app_trace("iurl[".$uri." ".json_encode($_GET)."]");
+        $loger->app_trace("iurl[".$uri." GET=".json_encode($_GET)."]");
+        $loger->app_trace("iurl[".$uri." POST=".json_encode($_POST)."]");
+        $loger->app_trace("iurl[".$uri." RAW=".$raw."");
         foreach($rs as $ipWithPort){
             try{
                 $url = $this->rewriteUri($ipWithPort, $uri);
                 if(!empty($_GET)){
                     $url.= "?".http_build_query($_GET);
                 }
-                //$loger->app_trace("iurl[".$url." ".($raw. json_encode(array_keys($_POST)))."] --------------------------------------------------------");
+                //$loger->app_trace("iurl ------- [".$url." ".($raw. json_encode(array_keys($_POST)))."] --------------------------------------------------------");
                 if(!empty($raw)){
                     $ret = $curl->httpPost($url, $raw);
                 }elseif($method=='post'){
@@ -46,14 +44,16 @@ class ForwardCtrl {
                 }
                 //$loger->app_trace("iurl[".$url." ".($raw. json_encode(array_keys($_POST)))."] --------------------------------------------------------【{$ret}】");
                 if($this->ifNeedNext($ret)==false){
-                    $loger->app_trace("iurl[".$url." ".($raw. json_encode($_POST))."] success? echo 【$ret】");
+                    $loger->app_trace("iurl2[".$url." ] success, response 【{$ret}】");
                     return;
+                }else{
+		    $loger->app_trace("iurl2[".$url." ] failed, response 【{$ret}】");
                 }
             } catch (\ErrorException $e){
-                $loger->app_warning("iurl[".$url." ".($raw. json_encode($_POST))."] err".$e->getMessage());
+                $loger->app_warning("iurl[".$uri." ".($raw. json_encode($_POST))."] err".$e->getMessage());
             }
         }
-        $loger->app_warning("iurl[".$url." ".($raw. json_encode($_POST))."] all failed");
+        $loger->app_warning("iurl[".$uri." ".($raw. json_encode($_POST))."] all failed");
     }
     /**
      * 根据情况替换接口地址（默认不换）

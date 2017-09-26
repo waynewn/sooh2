@@ -9,6 +9,9 @@ namespace Sooh2\DB\Mongodb;
 class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
 {
     protected $_tmpKvobjTable;
+    public function getConn() {
+        return $this->connection;
+    }
     public function kvobjTable($tb=null)
     {
         if($tb==null){

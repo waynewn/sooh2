@@ -118,12 +118,16 @@ class KVObj extends KVObj\KVObjBase
      * @param string $k
      * @throws \ErrorException
      */
-    public function getField($k)
+    public function getField($k,$enableNull=false)
     {
         if(isset($this->r[$k])){
             return $this->r[$k];
         }else{
-            throw new \ErrorException('try get field:'.$k.' in '.$this->className);
+            if($enableNull){
+                return null;
+            }else{
+                throw new \ErrorException('try get field:'.$k.' in '.$this->className);
+            }
         }
     }
     

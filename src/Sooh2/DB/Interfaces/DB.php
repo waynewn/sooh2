@@ -8,6 +8,7 @@ interface DB
      * @param type $tb
      */
     public function kvobjTable($tb=null);
+    public function getConn();
     public function useDB($dbname);
     public function getOne($obj, $field, $where=null, $sortgrpby=null);
     public function getRecord($obj, $fields, $where=null, $sortgrpby=null);

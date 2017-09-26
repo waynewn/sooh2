@@ -96,6 +96,31 @@ class Ini
         return $tmp;
     }
     /**
+     * 设置Ini, 注意以下两点：
+     * 1）如果存在相应的配置文件，请确认文件已被加载过再调用此函数
+     * 2）key最大深度4层
+     */
+    public function setIni($k,$v)
+    {
+        $ks = explode('.', $k);
+        switch(sizeof($ks)){
+            case 1:
+                $this->loaded[$ks[0]]=$v;
+                break;
+            case 2:
+                $this->loaded[$ks[0]][$ks[1]]=$v;
+                break;
+            case 3:
+                $this->loaded[$ks[0]][$ks[1]][$ks[2]]=$v;
+                break;
+            case 4:
+                $this->loaded[$ks[0]][$ks[1]][$ks[2]][$ks[3]]=$v;
+                break;
+            default:
+                throw new \ErrorException('max-depth=4 in ini->setIni');
+        }
+    }
+    /**
      * 获取预定义文字串
      * @param string $k
      * @throws \ErrorException

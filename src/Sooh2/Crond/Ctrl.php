@@ -238,7 +238,7 @@ class Ctrl {
                 unset($this->_tasks[$taskname],$this->_planToRun[$i]);
             }
         }
-        return true;
+        return !empty($this->_tasks);
     }
     protected function forkTaskProcess($task)
     {

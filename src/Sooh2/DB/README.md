@@ -2,8 +2,8 @@
 
 ## 1.设计目标
 
-1. 提供基本用法，这些基本用法可以忽略掉数据库差异（即同时适用于mysql，mongo，redis等）
-2. 提供专属类，可以方便执行数据库专属的一些功能（比如 mysql的 的delay insert，redis的que操作）
+1. 提供基本用法，这些基本用法可以忽略掉数据库差异（即同时适用于mysql，mongo，redis等），exec方法虽然作为基本用法类提供的方法，其实是具体类型数据库支持的语法
+2. 提供专属类，可以更方便的执行数据库专属的一些功能（比如 mysql的 的delay insert，redis的que操作）
 3. 针对nosql（Key-Val），提供一套封装，支持分表分库分服务器，同样忽略数据库类型，详情参看 [KVObj](KVObj.md)
 4. KVObj既然支持分服务器分库分表，在此基础上加一层，实现简单读写分离（包括cache模式的读写分离）
 5. 额外提供一些基于数据库的功能类
@@ -17,41 +17,43 @@
 
 1. kvobj 的更新没有使用事务悲观锁机制，靠 update tb set rowVersion=9 where rowVersion=8 来实现的乐观锁
 2. redis实现中，主键命名规则是：tablename:pkey1name:pkey1val:pkey2name:pkey2val....，相应的，where只能是pkey（为了支持kvobj,特殊处理支持rowVersion）
-3. mongodb 虽然一定程度支持了类sql查询，由于设计复杂性，加上采用mongo是为了nosql,而不是为了sql，因此设计实现上基本用法做了约束：where 是主键（为了支持kvobj,特殊处理支持rowVersion）；当只有一个字段的时候，主键的值直接作为_id，多个字段的时候，pkey1name:pkey1val:pkey2name 作为_id
+3. mongodb 虽然一定程度支持了类sql查询，但性能有问题，所以一般只是作为文档数据库，因此设计实现上基本用法做了约束：where 是主键（为了支持kvobj,特殊处理支持rowVersion）；当只有一个字段的时候，主键的值直接作为_id，多个字段的时候，pkey1name:pkey1val:pkey2name 作为_id
 4. redis，mongo作为nosql，where虽然只有主键，但del和get支持其中一个是数组（比如一组用户id）
-5. db是跟connection走的，不是跟db封装类，所以尽量使用 database.table 的格式操作，避免程序转来转去操作错库的情况。
+5. db是跟connection走的，不是跟db封装类，所以尽量使用 database.table 的格式操作，避免程序跳来跳去，操作错库的情况。
+6. 作者经历的项目，都是以mysql为核心，redis为缓存，mongodb为文档服务器的，所以专属类实现的并不多，你可以根据自己的情况扩展。
 
 ## 2.使用方式
 
 ### 2.1 where 的构建方法
 
-        \Sooh2\Messager\Email\SmtpSSL::getInstance('user=yunwei@xyz.com&pass=123456&server=smtp.exmail.qq.com')
-        ->sendTo('wangning@zhangyuelicai.com', 'tet测试123423', 'tet测试')
+以mysql的语法为例：
+
+		array('a'=>1,'b'=>[2,3])              //  where a = 1 and b in (2,3)
+		array('|'=>['*a'='sth%', '!b'=>1])       //  where a like 'sth%' or b<>1
+		array('a'=>1, '|1'=>['b'=>2,'b'=>3],  '|2'=>['e'=>1,'f'=>1])  // where a=1 and (b=2 or b=3) and (e=>1 or f=1)
+
+更多详细用法参见： [Where用法](WHERE.md)
 
 ### 2.2 基本用法
 
-        Broker或Broker子类::getInstance()
-        ->sendEvtMsg('register', $uid_or_uidArray, ['{replaceFrom}' => $replaceTo]);
+        $db = \Sooh2\DB::getDB($ini);//获取数据库实例(在没有实际操作之前，不连接数据库)
+        $db->addRecord('db.table1',array('createTime'=>'2017-1-1'),array('id'=>1,));//为了兼容
 
+        $r = $db->getRecord('db.table1','*', array('a'=>$db->getCol('db.table2','id',array('>createTime'=>'2017-1-1'))));
+        // select * from db.table1 where a in (select id from db.table2 where createTime>'2017-1-1');
+
+        $rs = $db->exec(array("select * from db.tb"));//虽然是基本用法类提供的方法，其实是具体类型数据库支持的语法，使用时要注意
+        $rs = $db->fetchResultAndFree($rs);
+        
+        echo $db->lastCmd(); 
+
+        //框架级程序执行完后，建议执行 \Sooh2\DB::free() 释放资源
 ### 2.3 专属类
 
-** A)Messager.Ini 定义了系统支持的通道和配置参数： ** 
+数据库特性操作，比如redis设置超时等放在专属类里
 
-(Broker类通过getSenderCtrl()方法获取通道类，配置文件的格式是通过Misc\\Ini读取的，根据需要替换)
-
-		[msg]
-		name = '站内信'
-		class = "\\Prj\\InnerMsg"
-		ini = "xxxxxx"
-
-		[email]
-		name = '邮件'
-		class = "\\Sooh2\\Messager\\Email\\SmtpSSL"
-		ini = "user=xxx&pass=xxxx&server=smtp.exmail.qq.com"
-
-** B）准备消息模板 **
-
-数据库里记录了模板id（可以兼事件标识，消息标题模板，消息内容模板，需要往哪些通道发送）
+        \Sooh2\DB\Redis\Special::getInstance(array(配置....))
+        或  \Sooh2\DB\Redis\Special::getInstance($db->getConn())// 这种要求你能确认此时的db是对应的数据库类型，本例中是redis
 
 ### 2.4 KVObj
 
@@ -71,7 +73,7 @@
         }
 
 注意： KVObj的更新操作是通过 set rowVersion=10 where xxx and rowVersion=9 这种方式排他锁的，为了实现这个效果，像redis，mongo是做了好几步操作来实现的，
-对于高并发特定场景，使用专属代码效率更高
+对于特定场景，使用专属类完成一些操作更合理，效率也更高
 
 参看: [KVObj详细配置和用法](KVObj.md)
 
@@ -95,81 +97,24 @@
 ### 3.3 重点函数说明 
 
 基本用法主要有：
-addRecord   失败要么异常，要么返回false；成功：如果支持自增字段，返回自增结果，否则返回true
+addRecord   失败要么异常，要么返回false；成功：如果支持自增字段，返回自增结果，否则返回true；第三个参数，主键数组，mysql不用拆，但是为了兼容nosql，所以拆开了
 updRecords  失败要么异常，要么返回false；成功：如果支持变动记录数，返回变更记录数量，否则返回true
 delRecord   失败要么异常，要么返回false；成功：如果支持变动记录数，返回变更记录数量，否则返回true
-getOne
-getPair
-getRecord
-getRecords
-getRecordCount
+getOne      失败要么异常，要么返回null；成功：返回指定记录的那个字段的值
+getPair     失败要么异常，要么返回array()；成功：将结果以key=>val 的数据形式返回
+getRecord   失败要么异常，要么返回array()；成功：返回指定记录
+getRecords  失败要么异常，要么返回array()；成功：返回指定记录集
+getRecordCount  失败异常，成功：返回指定记录条数
+exec & fetchResultAndFree 虽然是基本用法类提供的方法，其实是具体类型数据库支持的语法，使用时要注意
+lastCmd     返回字符串：最后执行的命令字符串（mysql来讲就是sql）
 
 ### 3.4 默认提供的类需要的相关配置 sql
 
     无
 
-
-
 ## 其它（场景,注意事项）
 
 *记录版本号字段：*
 
-使用时通过自增（update verid加一  where verid=xxx），用于实现行级乐观锁。默认字段名rowVersion，可以通过 define(DBROW_VERFIELD,'重新指定')
-
-*数组数据值*
-
-不同数据库存取类型对数组的处理不太一样
-
-- redis 可以直接存取
-- mysql 保存时会转换成json，读出时候不会自动还原
-
-DB 不依赖 Sooh2\\Misc\\Ini
-KVObj 依赖 Sooh2\\Misc\\Ini
-
-KVObj 配置文件查找顺序  KVObj.classname => KVObj.default => 默认值 [1,'defaulr']
-KVObj 的 dbWithTablename 要在用之前现获取（当链接到同一个服务器时，底层的db是同一个实例，所以后面一个获取到的会覆盖前一个的table）
-KVObj 的getCopy（）容易改成 getCopy($uid) {return parent::getCopy(['uid'=>$uid]);},这样改，在继承层级多了以后，容易错，需要进一步改成{
-    if($uid===null){return parent::getCopy(null);}
-    elseif(is_array($uid)){return parent::getCopy($uid);}
-    else {return parent::getCopy(['uid'=>$uid]);}
-}
-
-updRecords 的结果
-数字是应对知道实际改变记录数量的情况
-true是不能获取改变记录数量的情况或改变记录数是0
-
-userId 目前取值10位（考虑到用户个人账户日志，减少索引负载，采用userid10+ymd6+inc3，首位保留，支持近200亿用户，每天100次操作，80年内仍然是有效递增，期间应该需要重构了）
-kvobj 可以没有lock字段提高一点性能，但一定要有rowVersion
-ini 初始化一定要放在最开始（在其他诸如loger之前）
-kvobj的classname默认是处理：转换成全小写，用于找conf和拼接出数据库表名称
-kvobj 保存时，键冲突或rowver错误，返回false，其它原因导致的错误抛异常
-kvobj 不支持自动递增字段
-kvobj 的锁是软锁，没有硬拦截（不写判定代码是可以对锁了的记录进行更新的），逻辑顺序是：load->chklock->[lock and update]->unlock->update
-### where 
-
-where的写法参考 [WHERE.md](WHERE.md "where编写说明")
-
-### mysql
-
-1. 获取自增值：->exec(array(['SELECT LAST_INSERT_ID()']));
-
-## 基本使用（等价写法）
-
-### getRecord(tbname, fields, where, sortgrpby)
-
-->getRecord("tb","*,field1",array('&'=>array('k1'=>2,'k2'=>22)), 'sort k1')
-
-数据库 | 效果 
----- |  ---
-mysql| select *,field1 from tb where k1=2 and k2=22 order by k1 limit 1;
-redis| hGetAll (tb:k1:2:k2:22); (返回结果时会把键值k1,k2拆开放入返回的数组)
-
-### getOne(tbname, fields, where, sortgrpby)
-
-->getRecord("tb","field1",array('&'=>array('k1'=>2,'k2'=>22)), 'sort k1')
-
-数据库 | 效果 
----- |  ---
-mysql| select field1 from tb where k1=2 and k2=22 order by k1 limit 1;
-redis| hGet (tb:k1:2:k2:22,field1);
+使用时通过自增（update verid加一  where verid=xxx），用于实现行级乐观锁。默认字段名rowVersion，可以通过 define(DBROW_VERFIELD,'重新指定字段名')
 

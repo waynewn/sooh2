@@ -6,6 +6,9 @@ namespace Sooh2\DB\Redis;
  */
 class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
 {
+    public function getConn() {
+        return $this->connection;
+    }
     protected $_tmpKvobjTable;
     public function kvobjTable($tb=null)
     {
