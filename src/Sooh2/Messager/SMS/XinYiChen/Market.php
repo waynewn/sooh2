@@ -22,7 +22,7 @@ class Market extends \Sooh2\Messager\Sender{
      * @throws \ErrorException
      * @return string 消息发送结果
      */
-    public function sendTo($user,$content,$title=null)
+    public function sendTo($user,$content,$title=null,$args=null)
     {
         $curl = \Sooh2\Curl::factory();
         $args = $this->_ini;

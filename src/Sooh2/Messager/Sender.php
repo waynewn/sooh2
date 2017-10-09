@@ -54,7 +54,7 @@ class Sender {
      * @throws \ErrorException 出错或发送失败
      * @return string 发送成功，对方的返回结果
      */
-    public function sendTo($user,$content,$title=null)
+    public function sendTo($user,$content,$title=null,$args=null)
     {
         throw new \ErrorException('todo');
     }

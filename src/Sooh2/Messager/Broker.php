@@ -73,20 +73,20 @@ class Broker {
             $title = str_replace(array_keys($replace),$replace,$msgTpl->getTitleTpl());
             $content = str_replace(array_keys($replace),$replace,$msgTpl->getContentTpl());
             $ways = $msgTpl->getWays();
-            $this->sendCustomMsg($title, $content, $user, $ways,$evtmsgid);
+            $this->sendCustomMsg($title, $content, $user, $ways,$evtmsgid,$replace);
         }else{
             throw new \ErrorException('msg config not found');
         }
     }
     
-    public function sendCustomMsg($title,$content,$user,$ways,$evtmsgid='custom')
+    public function sendCustomMsg($title,$content,$user,$ways,$evtmsgid='custom',$extarg=null)
     {
         foreach ($ways as $w){
             $sender = $this->getSenderCtrl($w);
             if($sender){
                 $userlist = $this->getUserForSender($user, $sender);
                 try{
-                    $ret = $sender->sendTo($userlist, $content, $title);
+                    $ret = $sender->sendTo($userlist, $content, $title,$extarg);
                     $this->onSendSuccess($w,$evtmsgid, $userlist, $content, $ret);
                 }catch(\ErrorException $e){
                     $this->onSendFailed($w,$evtmsgid, $userlist, $content, $e->getMessage());

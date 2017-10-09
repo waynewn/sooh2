@@ -30,7 +30,7 @@ class Notice extends \Sooh2\Messager\Sender{
      * @throws \ErrorException
      * @return string 消息发送结果
      */
-    public function sendTo($user,$content,$title=null)
+    public function sendTo($user,$content,$title=null,$args=null)
     {
         error_log("sendEvtMsg 【 test-notice 】 ".json_encode($user).",$content,$title");
         switch ($this->_ini['type']){

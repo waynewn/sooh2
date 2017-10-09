@@ -11,7 +11,7 @@ class MsgSentLog extends \Sooh2\DB\KVObj implements Interfaces\MsgSendLog{
     {
         return parent::getCopy(array('logid'=>$logid));
     }
-    public static function createNew($title,$content,$user,$ways,$evtmsgid)
+    public static function createNew($title,$content,$user,$ways,$evtmsgid,$extarg='')
     {
         $dt = explode('.', microtime(true));
         
@@ -28,6 +28,7 @@ class MsgSentLog extends \Sooh2\DB\KVObj implements Interfaces\MsgSendLog{
             $tmp->setField('msgcontent',$content);
             $tmp->setField('users',$user);
             $tmp->setField('ways',$ways);
+            $tmp->setField('extarg', empty($extarg)?"":json_encode($extarg));
             if(!is_array($ways)){
                 $ways = array($ways);
             }
@@ -65,4 +66,5 @@ class MsgSentLog extends \Sooh2\DB\KVObj implements Interfaces\MsgSendLog{
         $cur[$wayid]=$ret;
         $this->setField('sentret', $cur);
     }
+    public function getExtargs(){return $this->getField('extarg',true);}
 }

@@ -15,7 +15,7 @@ class Auto extends \Sooh2\Messager\Sender{
      * @throws \ErrorException
      * @return string 消息发送结果
      */
-    public function sendTo($user,$content,$title=null)
+    public function sendTo($user,$content,$title=null,$args=null)
     {
         if(!is_array($this->_ini['senders'])){
             $this->_ini['senders'] = explode(',', $this->_ini['senders']);
@@ -23,7 +23,7 @@ class Auto extends \Sooh2\Messager\Sender{
         foreach($this->_ini['senders'] as $senderId){
             $sender = $this->getSenderById($senderId);
             try{
-                return $sender->sendTo($user,$content,$title);
+                return $sender->sendTo($user,$content,$title,$args);
             } catch (\ErrorException $ex) {
                 $this->onErrorFound($senderId, $ex->getMessage());
             }

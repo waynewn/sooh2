@@ -37,14 +37,14 @@ abstract  class BrokerWithLog extends Broker{
         return '\\Sooh2\\Messager\\MsgSentLog';
     }
     
-    public function sendCustomMsg($title, $content, $user, $ways, $evtmsgid = 'custom') {
+    public function sendCustomMsg($title, $content, $user, $ways, $evtmsgid = 'custom',$extarg=null) {
         $logclass = $this->getLogerClassname();
-        $this->_loger = $logclass::createNew($title,$content,$user,$ways,$evtmsgid);
+        $this->_loger = $logclass::createNew($title,$content,$user,$ways,$evtmsgid,$extarg);
         if($this->_loger==null){
             \Sooh2\Misc\Loger::getInstance()->app_trace("EvtMSG[$evtmsgid] send $content to ". json_encode($user)." failed as : log record create failed");
             return;
         }
-        $ret = parent::sendCustomMsg($title, $content, $user, $ways, $evtmsgid);
+        $ret = parent::sendCustomMsg($title, $content, $user, $ways, $evtmsgid,$extarg);
         return $ret;
     }
     
@@ -56,7 +56,7 @@ abstract  class BrokerWithLog extends Broker{
             \Sooh2\Misc\Loger::getInstance()->app_trace("EvtMSG[$evtmsgid] send $content to ". json_encode($user)." failed as : log record missing");
             return;
         }else{
-            return parent::sendCustomMsg($this->_loger->getTitle(), $this->_loger->getContent(), $this->_loger->getUsers(), array($wayid), 'retry');
+            return parent::sendCustomMsg($this->_loger->getTitle(), $this->_loger->getContent(), $this->_loger->getUsers(), array($wayid), 'retry',$this->_loger->getExtargs());
         }   
     }
 }

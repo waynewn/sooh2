@@ -136,6 +136,7 @@
           `msgcontent` varchar(2000) NOT NULL COMMENT '实际发送的内容',
           `users` varchar(1000) NOT NULL COMMENT '发给哪些用户',
           `ways` varchar(200) NOT NULL  COMMENT '发给哪些通道',
+          `extarg` varchar(1000) NOT NULL  COMMENT '附加参数',
           `sentret` varchar(2000) NOT NULL COMMENT '发送结果',
           `rowVersion` int(11) NOT NULL DEFAULT '0',
           PRIMARY KEY (`logid`)

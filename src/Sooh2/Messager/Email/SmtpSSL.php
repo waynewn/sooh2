@@ -24,7 +24,7 @@ class SmtpSSL extends \Sooh2\Messager\Sender{
      * @throws \ErrorException
      * @return string 消息发送结果,成功返回{"error":0}
      */
-    public function sendTo($user,$content,$title=null)
+    public function sendTo($user,$content,$title=null,$args=null)
     {
         $mail = new Impl();
         //$mail->setServer("smtp@126.com", "XXXXX@126.com", "XXXXX"); //设置smtp服务器，普通连接方式
