@@ -86,7 +86,7 @@ class Orders extends \Sooh2\DB\KVObj{
     public function getLastTime($batchYmd)
     {
         list($db,$tb)=$this->dbAndTbName();
-        return $db->getOne($tb,'dt',array('batchYmd'=>$batchYmd),'rsort dt');
+        return $db->getOne($tb,'dt',array('batchYmd'=>$batchYmd),'rsort dt')-86400;
     }
     public static function install()
     {
@@ -146,7 +146,7 @@ class Orders extends \Sooh2\DB\KVObj{
             $db->kvobjTable($tb);
             $ret->chkUserOrders($db,$this->batchYmd);
         } catch (\ErrorException $e){
-            echo "QSC：recheck err".$uid.'#'.$e->getMessage()."\n".$e->getTraceAsString();
+            \Sooh2\Misc\Loger::getInstance()->app_warning("QSC：recheck err".$uid.'#'.$e->getMessage()."\n".$e->getTraceAsString());
             $ret->appendErrorException($e);
         }
         $ret->updUser();

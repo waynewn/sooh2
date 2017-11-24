@@ -6,7 +6,7 @@ namespace Sooh2\DB\Myisam;
  *
  * @author wangning
  */
-class Special extends Cmd{
+class Special extends Broker{
     /**
      * 
      * @param array $arrConnIni

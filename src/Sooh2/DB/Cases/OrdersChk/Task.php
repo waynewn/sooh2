@@ -41,24 +41,24 @@ abstract  class Task {
     {
         $this->step_prepare($ymd);//清理、设置准备环境
         if(empty($users)){
-            echo "QSC：导入订单数据\n";
+//            error_log( "QSC：导入订单数据\n");
             $this->step_importOrders();//导入订单数据
-            echo "QSC：根据导入的订单重置AccountMirror\n";
+//            error_log( "QSC：根据导入的订单重置AccountMirror\n");
             $this->step_resetAccMirror();//根据导入的订单重置AccountMirror
-            echo "QSC：检查所有用户的订单状态\n";
+//            error_log( "QSC：检查所有用户的订单状态\n");
             $this->step_checkAllUser();//检查所有用户的订单状态
-            echo "QSC：找出有错的用户，重新导入相关订单检查一下\n";
+//            error_log( "QSC：找出有错的用户，重新导入相关订单检查一下\n");
             $us = $this->_accMirror->userWithError();
             if(!empty($us)){//找出有错的用户，重新导入相关订单检查一下
-                echo "QSC：发现". sizeof($us)."个错误用户\n";
+//                error_log( "QSC：发现". sizeof($us)."个错误用户\n");
                 $this->step_recheckUsers($us);
             }
         
         }else{//直接重新导入相关订单检查一下
-            echo "QSC：". sizeof($us)."个指定用户需要检查\n";
+//            error_log( "QSC：". sizeof($us)."个指定用户需要检查\n");
             $this->step_recheckUsers($users);
         }
-        echo "QSC：生成报表\n";
+//        error_log( "QSC：生成报表\n");
         return $this->step_report();//更新批次状态
     }
     /**
@@ -70,7 +70,7 @@ abstract  class Task {
         list($db0,$tbOrders) = $this->_orders->dbAndTbName();
         list($db2,$tb2) = $this->_accMirror->dbAndTbName();
         $db2->exec(['delete from '.$tb2,
-            'insert into '.$tb2.' select distinct(uid),-1,\'\',0,0,\'\',1 from '.$tbOrders]);
+            'insert into '.$tb2.' select distinct(uid),-1,\'\',0,0,\'\',1 from '.$tbOrders.' where batchYmd>'.$this->_batchLastConfirmed->getBatchId()]);
     }
     /**
      * 系统安装：需要安装以下库表
@@ -186,10 +186,17 @@ abstract  class Task {
     public function step_report()
     {
         $batchRecord = $this->_batchCur;
-        
+        $errUser = $this->_accMirror->userWithError();
         $users = array(
-                'usrCount'=>$this->_accMirror->userCount($this->batchYmd)
+                'usrCount'=>$this->_accMirror->userCount($this->batchYmd),
                 );
+        if(empty($errUser)){
+            $users['err']=0;
+        }elseif(sizeof($errUser)<=5){
+            $users['err']= implode(', ', $errUser);
+        }else{
+            $users['err']= sizeof($errUser);
+        }
 
         list($db,$tb) = $this->_orders->dbAndTbName();
         $batchRecord->setRet($users,

@@ -258,7 +258,10 @@ class KVObjRW implements Interfaces
         if($this->_writer){
             $this->_writer->free();
         }
+        if($this->_reader){
         $this->_reader->free();
+        }
+
         $this->_reader = null;
         $this->_writer = null;
     }

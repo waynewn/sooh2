@@ -184,9 +184,9 @@ class Basic2U extends \Sooh2\Messager\Sender{
                 "title"=>$title,
 //                "logo"=>"logo.png",
 //                "logourl"=>"http://xxxx/a.png",
-                "is_ring"=>true,
-                "is_vibrate"=>true,
-                "is_clearable"=>true
+//                "is_ring"=>true,
+//                "is_vibrate"=>true,
+//                "is_clearable"=>true
             ),
             'transmission_type'=>empty($args['pushdata'])?false:true,
             'transmission_content'=> empty($args['pushdata'])?'':$args['pushdata'],
@@ -235,9 +235,9 @@ class Basic2U extends \Sooh2\Messager\Sender{
                 'multimedia'=>array(
                    // array("url": "http://ol5mrj259.bkt.clouddn.com/test2.mp4","type": 3, "only_wifi": true ),
                 ),
+                'payload' => empty($args['pushdata'])?'':$args['pushdata'],
             );
         return $arr;
 
     }
-    
 }

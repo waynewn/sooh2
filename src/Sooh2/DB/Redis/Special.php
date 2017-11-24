@@ -6,7 +6,7 @@ namespace Sooh2\DB\Redis;
  *
  * @author wangning
  */
-class Special extends Cmd{
+class Special extends broker{
     /**
      * 
      * @param array $arrConnIni
@@ -51,7 +51,7 @@ class Special extends Cmd{
     {
         $this->connection->getConnection();
         $allkeys = $this->fmtObj($key,$where);
-        return $this->exec(array(['expireAt',$allkeys[0],$secondsExpired]));
+        return $this->exec(array(['expireAt',$allkeys[0],time()+$secondsExpired]));
     }
     public function dropKey($key,$where=null)
     {

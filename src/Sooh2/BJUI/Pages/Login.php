@@ -7,10 +7,10 @@
  */
 
 /**
- * Description of JPush
+ * Description of Login
  *
  * @author simon.wang
  */
-class JPush {
+class Login {
     //put your code here
 }

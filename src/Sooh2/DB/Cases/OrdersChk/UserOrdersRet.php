@@ -87,7 +87,7 @@ class UserOrdersRet {
         $change = $this->chkUserOrders_balanceChg(
                 $dbOfOrders->getRecords($tb,'orderType,prestatus,'.$statusField.' as orderStatus,sum(orderAmount1) as orderAmount,sum(payAmount1) as payAmount, sum(feeAmount1) as feeAmount,max(dt) as dt',
                                         array(Orders::field_batchYmd=>$batchYmd,Orders::field_uid=>$uid,Orders::field_err=>Orders::err_none,
-                                            $statusField=>array(OrderStatus::success,OrderStatus::frose),'>'.Orders::field_dt=>$this->_dtAfter),
+                                            '>'.Orders::field_dt=>$this->_dtAfter),
                                         'group orderType groupby prestatus groupby '.$statusField
                 ));
         

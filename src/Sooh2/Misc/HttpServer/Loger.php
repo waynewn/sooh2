@@ -70,11 +70,14 @@ class Loger {
     public function founderror($serverId,$logfile)
     {
         $return=null;
-        $logfile ="/usr/local/openresty/nginx/logs/access.log";
         //$cmd = "grep 03/May/2017:15:13 $logfile";
         $cmd = "grep ".date("d/M/Y:H:i",time()-120)." $logfile";
         exec($cmd,$return);
 
+        return $this->parseLog($serverId,$return);
+    }
+    protected function parseLog($serverId,$return)
+    {
         $ks = $this->logDefine();
 
         $ret = array();
@@ -112,7 +115,8 @@ class Loger {
         $e->code = $r['code'];
         $e->errServer=$serverId;
         $tmp = explode(' ', $r['request']);
-        $e->errUri = array_shift(explode('?',$tmp[1]));
+        $tmp2 = explode('?',$tmp[1]);
+        $e->errUri = array_shift($tmp2);
         $e->fullRequest = $r['request'];
         $e->ip = $r['remove_addr'];
         $e->refer = $r['referer'];
@@ -135,18 +139,22 @@ class Loger {
             'clientIp'=>$err->ip,
 	    'cdnIp'=>$err->cdnip,
         );
+        if(method_exists($this->db, 'addLog')){
+            $this->db->addLog($this->tb, $fields);
+        }else{
         $this->db->addRecord($this->tb, $fields);
+    }
     }
 
     /**
      * 默认记录保持30天
      */
-    protected function removeOldRecord($dayKeep=30)
+    public function removeOldRecord($dayKeep=30)
     {
         $this->db->delRecords($this->tb,array('<ymdhis'=>date("YmdHis",time()-86400*$dayKeep)));
     }
     /**
-     * 找到需要发邮件的日志发邮件
+     * 找到需要发邮件的日志发邮件(一次100个，多出的记录慢慢消化)
      * @param \Sooh2\SMTP $mail 邮件发送类（有方法：setReceiver(一个地址) 和 setMail（title，content）和sendMail（））
      */
     public function reportErrorFound($mail,$arrAddress)
@@ -165,7 +173,7 @@ class Loger {
             . 'index reported (reported),'
             . 'primary key (autoid)'
             . ')'));
-        $rs = $this->db->getRecords($this->tb, '*',array('reported'=>0));
+        $rs = $this->db->getRecords($this->tb, '*',array('reported'=>0),null,100);
 
         if(empty($rs)){
             return ;
