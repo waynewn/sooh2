@@ -1,0 +1,8 @@
+{
+    "name": "hillstill/Sooh2",
+    "description": "libs for : db , key-val type obj with db-careless, and other small class",
+    "require": {
+        "php": "^5.4",
+        "another-vendor/package": "1.*"
+    }
+}
