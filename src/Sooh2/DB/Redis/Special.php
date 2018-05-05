@@ -6,7 +6,7 @@ namespace Sooh2\DB\Redis;
  *
  * @author wangning
  */
-class Special extends broker{
+class Special extends Broker{
     /**
      * 
      * @param array $arrConnIni

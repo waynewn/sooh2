@@ -38,7 +38,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
         try{
             $bulk->insert($document);
             $writeConcern = new \MongoDB\Driver\WriteConcern(\MongoDB\Driver\WriteConcern::MAJORITY, 10000);//插入动作，这里加个超时吧
-            \Sooh2\Misc\Loger::getInstance()->sys_trace($this->_lastCmd);
+            \Sooh2\Misc\Loger::getInstance()->lib_trace("TRACE: try @". (empty($this->connection->server)?"":$this->connection->server) ." ".$this->_lastCmd);
             $result = $this->connection->connected->executeBulkWrite("$dbname.$tbname", $bulk, $writeConcern);
             $affectedRows = $result->getInsertedCount(); 
             
@@ -92,7 +92,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
 
         $writeConcern = new \MongoDB\Driver\WriteConcern(\MongoDB\Driver\WriteConcern::MAJORITY, 1000);
         $this->_lastCmd = "$dbname:db.$tbname.update({_id:\"". $_id.'",'. json_encode($fields).',{upsert:false,multi:false})';
-        \Sooh2\Misc\Loger::getInstance()->sys_trace($this->_lastCmd);
+        \Sooh2\Misc\Loger::getInstance()->lib_trace("TRACE: try @". (empty($this->connection->server)?"":$this->connection->server) ." ".$this->_lastCmd);
         $ret = $this->connection->connected->executeBulkWrite("$dbname.$tbname", $bulk, $writeConcern);
        
         $this->delRecords($objLock,$where);
@@ -138,7 +138,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             }
             $bulk->delete($filter, array('limit' => 0));// limit 为 1 时，删除第一条匹配数据
             $this->_lastCmd = "$dbname:db.$tbname.remove(". json_encode($filter).')';
-            \Sooh2\Misc\Loger::getInstance()->sys_trace($this->_lastCmd);
+            \Sooh2\Misc\Loger::getInstance()->lib_trace("TRACE: try @". (empty($this->connection->server)?"":$this->connection->server) ." ".$this->_lastCmd);
             $writeConcern = new \MongoDB\Driver\WriteConcern(\MongoDB\Driver\WriteConcern::MAJORITY, 0);//默认不设置ms-timeout
             $result = $this->connection->connected->executeBulkWrite("$dbname.$tbname", $bulk, $writeConcern);
             $affectedRows = $result->getDeletedCount(); 
@@ -222,7 +222,7 @@ class Broker extends Cmd implements \Sooh2\DB\Interfaces\DBReal
             $options['skip']=$rsFrom;
             $this->_lastCmd.=".skip(".$rsFrom.")";
         }
-        \Sooh2\Misc\Loger::getInstance()->sys_trace($this->_lastCmd);
+        \Sooh2\Misc\Loger::getInstance()->lib_trace("TRACE: try @". (empty($this->connection->server)?"":$this->connection->server) ." ".$this->_lastCmd);
         //". json_encode($options);
         // 查询数据
         $query = new \MongoDB\Driver\Query($filter, $options);

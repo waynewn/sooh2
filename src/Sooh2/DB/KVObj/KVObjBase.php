@@ -165,8 +165,8 @@ class KVObjBase
             $s = md5($n);
             $n1 = base_convert(substr($s,-3), 16, 10);
             $n2 = base_convert(substr($s,-6,3), 16, 10);
-            $n = $n2*100+($n1%100);
-            return array($n,$n%10000);
+            $n3 = $n2*100+($n1%100);
+            return array($n,$n3%10000);
         }
     }
 

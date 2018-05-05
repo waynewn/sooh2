@@ -50,14 +50,14 @@ class Util
                 if(is_array($v)){
                     $s.=$f($v).',';
                 }else{
-                    if(is_numeric($v)){
+                    if(is_numeric($v) && strlen($v) <= 14){
                         $s.=$v.',';
                     }else{
                         $s .= '"'.str_replace('"', '\\"', $v).'",';
                     }
                 }
             }
-            return substr($s,0,-1).'}';
+            return str_replace(["\n" , "\r" , "\t"] , '' , substr($s,0,-1).'}');
         }else{
             if(empty($arr)){
                 return '[]';
@@ -72,14 +72,14 @@ class Util
                 if(is_array($v)){
                     $s.=$f($v).',';
                 }else{
-                    if(is_numeric($v)){
+                    if(is_numeric($v) && strlen($v) <= 14){
                         $s.=$v.',';
                     }else{
                         $s .= '"'.str_replace('"', '\\"', $v).'",';
                     }
                 }
             }
-            return substr($s,0,-1).']';
+            return str_replace(["\n" , "\r" , "\t"] , '' , substr($s,0,-1).']');
         }
     }
     /**
@@ -100,23 +100,27 @@ class Util
     public static function getStrWithin($content,$begin,$end){
         $kl = strlen($begin);
         $pos = strpos($content, $begin);
-        $poe = strpos($content, $end,$pos+$kl);
-        $mid = substr($content,$pos+$kl,$poe-$pos-$kl);
-        return $mid;
+        if($pos!==false){
+            $poe = strpos($content, $end,$pos+$kl);
+            $mid = substr($content,$pos+$kl,$poe-$pos-$kl);
+            return $mid;
+        }else{
+            return '';
+        }
     }
 
-
-    
-    public static function remoteIP($proxyIP=null)
+    public static function remoteIP($proxyIP='100.109')
     {
         //$proxyIP = \Sooh\Base\Ini::getInstance()->get('inner_nat');
-        if(!empty($proxyIP) && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])){
+        if(!empty($_SERVER['HTTP_X_FORWARDED_FOR'])){
             $arr = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
             foreach ($arr as $ip){
                 $ippart = explode('.',trim($ip));
                 if($ippart[0]==10){
                     continue;
-                }elseif($ippart[0]==192 && $ippart[1]==168){
+                }
+                $cmp = $ippart[0].'.'.$ippart[1];
+                if($cmp =='192.168' || $cmp==$proxyIP){
                     continue;
                 }else{
                     return $ip;

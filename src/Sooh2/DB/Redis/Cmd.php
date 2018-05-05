@@ -51,7 +51,7 @@ class Cmd
         foreach($cmds as $cmd){
             $f = array_shift($cmd);
             $this->_lastCmd = $f.'('.json_encode($cmd).')';
-            \Sooh2\Misc\Loger::getInstance()->lib_trace('TRACE: try '.$this->_lastCmd);
+            \Sooh2\Misc\Loger::getInstance()->lib_trace("TRACE: try @". (empty($this->connection->server)?"":$this->connection->server) ." ".$this->_lastCmd);
 
             $lastRecordSet = call_user_func_array(array($this->connection->connected,$f), $cmd);
         }

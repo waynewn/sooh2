@@ -108,7 +108,7 @@ class Cmd
             $this->connect();
         }
         foreach($cmds as $cmd){
-            \Sooh2\Misc\Loger::getInstance()->lib_trace("TRACE: try $cmd");
+            \Sooh2\Misc\Loger::getInstance()->lib_trace("TRACE: try @". (empty($this->connection->server)?"":$this->connection->server) ." $cmd");
             $rs0 = mysqli_query($this->connection->connected, $this->_lastCmd=$cmd);
             $this->chkError();
         }
