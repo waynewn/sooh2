@@ -1,8 +1,13 @@
 {
     "name": "hillstill/Sooh2",
     "description": "libs for : db , key-val type obj with db-careless, and other small class",
+    "keywords":         ["db", "key-val obj", "redis", 'mysql', 'mongo'],
+    "license":          "MIT",
     "require": {
         "php": "^5.4",
         "another-vendor/package": "1.*"
+    },
+    "autoload": {
+      "psr-4": { "Sooh2\\": "src/Sooh2" }
     }
 }
