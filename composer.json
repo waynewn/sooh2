@@ -1,5 +1,5 @@
 {
-    "name": "SteadyAsHill/sooh2",
+    "name": "steady-as-hill/sooh2",
     "description": "libs for : db , key-val type obj with db-careless, and other small class",
     "keywords":         ["db", "key-val obj", "redis", "mysql", "mongo"],
     "license":          "MIT",
